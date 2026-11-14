@@ -13,9 +13,9 @@
 --   SUPER + 3 swipe    resize: the dividers follow the fingers
 --   SUPER + 3 tap      reset the split under the cursor to 50/50 (a middle click)
 --   SUPER + 4 swipe    drag the window under the cursor
---   4 spread           lift the window: tiled -> floating
---   SUPER + 4 spread   pop it: floating, centred, on top on every workspace
+--   4 spread           lift the window one step: tiled -> floating -> popped
 --   4 pinch            put it back one step: popped -> floating -> tiled
+--   SUPER + 4 spread   straight to popped (floating, centred, on every workspace)
 --   SUPER + 4 pinch    straight back into the tiling
 --
 -- Assumes Omarchy's ten workspace slots per monitor (o.workspaces).
@@ -180,13 +180,13 @@ hl.gesture({ fingers = 3, direction = "swipe", mods = "SUPER", action = {
 } })
 -- 4-finger spread / pinch: one ladder, tiled -> floating -> popped. Spreading
 -- lifts the window out of the tiling; pinching puts it back.
---   spread          lift one step: tiled -> floating, in place
---   SUPER + spread  pop: floating 1300x900, centred, pinned on top on every
---                   workspace (Omarchy's SUPER+O look, and its "pop" tag)
+--   spread          lift one step: tiled -> floating (in place) -> popped
+--   SUPER + spread  straight to popped: floating 1300x900, centred, pinned on
+--                   top on every workspace (Omarchy's SUPER+O look, "pop" tag)
 --   pinch           lower one step: fullscreen -> normal, popped -> floating,
 --                   floating -> tiled
 --   SUPER + pinch   straight back to tiled, from any of those
--- SUPER is the big jump both ways. Pinch works with or without SUPER (Hyprland
+-- Plain steps, SUPER jumps to the end, both ways. Pinch works with or without SUPER (Hyprland
 -- matches mods exactly, so both are bound), so a window floated or popped by
 -- keys always has a way back. A gesture whose target is already reached does
 -- nothing, so a misread one can't flip anything back. Fire as it is recognised.
@@ -195,11 +195,6 @@ local function act(fn)
     local w = hl.get_active_window()
     if w then fn(w) end
   end }
-end
-local function lift(w)
-  if w.fullscreen == 0 and not w.floating then
-    hl.dispatch(hl.dsp.window.float({ action = "on" }))
-  end
 end
 local function pop(w)
   if w.pinned then return end
@@ -210,6 +205,10 @@ local function pop(w)
   hl.dispatch(hl.dsp.window.pin({}))
   hl.dispatch(hl.dsp.window.alter_zorder({ mode = "top" }))
   hl.dispatch(hl.dsp.window.tag({ tag = "+pop" }))
+end
+local function lift(w)
+  if w.fullscreen ~= 0 or w.pinned then return end
+  if w.floating then pop(w) else hl.dispatch(hl.dsp.window.float({ action = "on" })) end
 end
 local function lower(w)
   if w.fullscreen ~= 0 then
