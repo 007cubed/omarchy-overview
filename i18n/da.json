@@ -5,5 +5,8 @@
   "switch.go": "%1 → %2",
   "status.go": "Gå til %1",
   "status.window": "%1 — %2",
-  "status.handle": "Træk %1 for at bytte hele arbejdsområdet · klik for at gå"
+  "status.handle": "Træk %1 for at bytte hele arbejdsområdet · klik for at gå",
+  "level.tiled": "Fliselagt",
+  "level.floating": "Svævende",
+  "level.popped": "Poppet ud"
 }

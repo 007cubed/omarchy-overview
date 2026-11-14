@@ -964,6 +964,75 @@ Item {
   // move that follows its window.
   property var lastMove: null
 
+  // ---- level hint ---------------------------------------------------------------
+  // The same card after a window changes level: 0 tiled, 1 floating, 2 popped
+  // (pinned on every workspace). Three cells instead of the grid, the new level
+  // as the label, one arrow from the old cell, the app under it.
+  property bool hintLevel: false
+  property int levelFrom: 0
+  property int levelTo: 0
+  // address -> { floating, pinned }, kept from Hyprland's events; a window not
+  // seen yet starts from its last known state.
+  property var levelState: ({})
+  // The level a burst of events started from: a pop sends float and pin a few
+  // ms apart, and the card shows the burst as one step.
+  property var levelPending: null
+
+  function levelOf(state) { return state.pinned ? 2 : state.floating ? 1 : 0 }
+
+  function noteLevelEvent(address, key, value) {
+    var state = root.levelState[address]
+    if (!state) {
+      var ipc = (root.toplevelByAddress(address) || {}).lastIpcObject
+      state = { floating: !!(ipc && ipc.floating), pinned: !!(ipc && ipc.pinned) }
+    }
+    if (!root.levelPending || root.levelPending.address !== address)
+      root.levelPending = { address: address, from: root.levelOf(state) }
+    state[key] = value
+    root.levelState[address] = state
+    levelSettle.restart()
+  }
+
+  function showLevel(address, from, to) {
+    if (from === to) return
+    var toplevel = root.toplevelByAddress(address)
+    // Only the window being worked on: a rule floating some other window
+    // somewhere stays quiet.
+    var active = Hyprland.activeToplevel
+    if (!toplevel || !active || String(active.address).replace(/^0x/, "") !== address) return
+    if (root.opened || Date.now() - root.closedAt < 300) return
+
+    var app = root.appOf(toplevel)
+    var fresh = !root.hintMapped
+    root.hintLevel = true
+    root.hintCarry = false
+    root.levelFrom = from
+    root.levelTo = to
+    root.hintIcon = app.icon
+    root.hintLetter = app.name ? app.name.charAt(0).toUpperCase() : ""
+    root.hintApp = app.name.length > 9 ? app.name.slice(0, 8) + "…" : app.name
+    root.hintText = strings.t(["level.tiled", "level.floating", "level.popped"][to])
+    root.hintMapped = true
+    root.hintShown = true
+    hintHold.interval = Style.duration(120) + 530
+    hintHold.restart()
+    hintUnmap.stop()
+    if (fresh) hintCard.placeLevel(from)
+    else hintCard.slideLevel(to)
+  }
+
+  Timer {
+    id: levelSettle
+    interval: 80
+    onTriggered: {
+      var pending = root.levelPending
+      root.levelPending = null
+      if (!pending) return
+      var state = root.levelState[pending.address]
+      if (state) root.showLevel(pending.address, pending.from, root.levelOf(state))
+    }
+  }
+
   // ---- carry arrow colour ------------------------------------------------------
   // Set in Omarchy's shell.toml, the theme's or ~/.config/omarchy/shell.toml (which
   // survives theme switches):
@@ -1057,6 +1126,7 @@ Item {
     var app = carry ? root.appOf(root.toplevelByAddress(move.address)) : null
     var fresh = !root.hintMapped
 
+    root.hintLevel = false
     root.hintBlock = block
     root.hintFrom = from
     root.hintTo = to
@@ -1087,6 +1157,11 @@ Item {
         root.lastMove = { address: fields[0], id: parseInt(fields[1], 10), time: Date.now() }
       } else if (name === "workspacev2") {
         root.showSwitch(parseInt(String(event.data).split(",")[0], 10))
+      } else if (name === "changefloatingmode" || name === "pin") {
+        var parts = String(event.data).split(",")
+        root.noteLevelEvent(parts[0].replace(/^0x/, ""), name === "pin" ? "pinned" : "floating", parts[1] === "1")
+      } else if (name === "closewindow") {
+        delete root.levelState[String(event.data).replace(/^0x/, "")]
       }
     }
   }
@@ -1115,7 +1190,10 @@ Item {
     // Visual only: an empty input region never blocks clicks below it.
     mask: Region {}
 
-    onContentRevealedChanged: if (contentRevealed) hintCard.slideTo(root.hintTo)
+    onContentRevealedChanged: if (contentRevealed) {
+      if (root.hintLevel) hintCard.slideLevel(root.levelTo)
+      else hintCard.slideTo(root.hintTo)
+    }
 
     BorderSurface {
       id: hintCard
@@ -1130,13 +1208,32 @@ Item {
       readonly property real gridH: root.rows * cellH + (root.rows - 1) * cellGap
       // A carry's caption never widens the card; its name is cut to fit instead.
       readonly property real innerW: root.px(Math.max(gridW, hintLabel.implicitWidth))
-      readonly property real captionH: root.hintCarry ? cellGap * 2 + hintCaption.implicitHeight : 0
+      readonly property bool captioned: root.hintCarry || root.hintLevel
+      readonly property real captionH: captioned ? cellGap * 2 + hintCaption.implicitHeight : 0
       // The plain switch card's height. A carry adds its caption below it, so the
       // label and grid sit in the same place either way.
       readonly property real plainH: borderTop + pad * 2 + borderBottom + hintLabel.implicitHeight + cellGap * 2 + gridH
 
       function cellX(slot) { return ((slot - 1) % root.columns) * (cellW + cellGap) }
       function cellY(slot) { return Math.floor((slot - 1) / root.columns) * (cellH + cellGap) }
+
+      // The level cells: three across the grid's footprint, so the card keeps
+      // its size and place whichever hint it shows.
+      // Wide gaps: the direction marks sit in them, never over a picture.
+      readonly property real levelGap: root.line(Style.space(14))
+      readonly property real levelW: root.px((gridW - 2 * levelGap) / 3)
+      function levelX(level) { return root.px((gridW - 3 * levelW - 2 * levelGap) / 2) + level * (levelW + levelGap) }
+
+      function placeLevel(level) {
+        levelSlide.stop()
+        levelMarker.x = levelX(level)
+      }
+
+      function slideLevel(level) {
+        levelSlide.stop()
+        levelSlideX.to = levelX(level)
+        levelSlide.start()
+      }
 
       function place(slot) {
         slide.stop()
@@ -1180,6 +1277,7 @@ Item {
 
       Item {
         id: hintGrid
+        visible: !root.hintLevel
         x: root.px(hintCard.borderLeft + hintCard.pad + (hintCard.innerW - hintCard.gridW) / 2)
         y: root.px(hintLabel.y + hintLabel.implicitHeight + hintCard.cellGap * 2)
 
@@ -1306,10 +1404,141 @@ Item {
         }
       }
 
-      // A carry names what moved: the app's icon (or its first letter) and name.
+      // The level hint: tiled, floating, popped from left to right (a spread
+      // moves right), each cell a small picture of that level. The other cells
+      // step back, and a triangle in each gap the change crossed points the way
+      // it went (a SUPER jump crosses two).
+      Item {
+        id: levelGrid
+        visible: root.hintLevel
+        x: hintGrid.x
+        y: hintGrid.y
+        width: hintCard.gridW
+        height: hintCard.gridH
+
+        readonly property real stroke: root.line(2)
+
+        // A cell's picture, in the cell's ink (background on the accent cell,
+        // foreground on the others), all three on the same inner box:
+        //   tiled     two panes side by side, the window's solid
+        //   floating  one smaller window, alone in the middle
+        //   popped    a bigger window with another stacked behind it (on every workspace)
+        component LevelPicture: Item {
+          id: pic
+          property int level: 0
+          property color ink: "white"
+          readonly property real s: levelGrid.stroke
+          readonly property real m: root.px(Math.max(3, height * 0.16))
+          readonly property real bw: width - m * 2
+          readonly property real bh: height - m * 2
+
+          Rectangle {
+            visible: pic.level === 0
+            x: pic.m; y: pic.m
+            width: root.px((pic.bw - pic.s) / 2); height: pic.bh
+            color: pic.ink
+          }
+          Rectangle {
+            visible: pic.level === 0
+            x: pic.m + root.px((pic.bw + pic.s) / 2); y: pic.m
+            width: pic.width - pic.m - x; height: pic.bh
+            color: "transparent"; border.width: pic.s; border.color: pic.ink
+          }
+          Rectangle {
+            visible: pic.level === 1
+            width: root.px(pic.bw * 0.62); height: root.px(pic.bh * 0.62)
+            x: root.px((pic.width - width) / 2); y: root.px((pic.height - height) / 2)
+            color: pic.ink
+          }
+          Rectangle {
+            visible: pic.level === 2
+            width: root.px(pic.bw * 0.64); height: root.px(pic.bh * 0.64)
+            x: pic.m + pic.bw - width; y: pic.m
+            color: "transparent"; border.width: pic.s; border.color: pic.ink
+          }
+          Rectangle {
+            visible: pic.level === 2
+            width: root.px(pic.bw * 0.64); height: root.px(pic.bh * 0.64)
+            x: pic.m; y: pic.m + pic.bh - height
+            color: pic.ink
+          }
+        }
+
+        Repeater {
+          model: 3
+          delegate: Rectangle {
+            required property int index
+            x: hintCard.levelX(index)
+            width: hintCard.levelW
+            height: hintCard.gridH
+            radius: Math.min(2, Style.cornerRadius)
+            color: "transparent"
+            border.width: levelGrid.stroke
+            border.color: Util.alpha(Commons.Color.popups.text, 0.5)
+            opacity: index === root.levelTo ? 1 : 0.7
+          }
+        }
+
+        // Direction: a solid triangle in each gap between the old level and the
+        // new one, pointing the way the window went.
+        Repeater {
+          model: 2
+          delegate: Shape {
+            id: tri
+            required property int index
+            readonly property int lo: Math.min(root.levelFrom, root.levelTo)
+            readonly property int hi: Math.max(root.levelFrom, root.levelTo)
+            visible: index >= lo && index < hi
+            width: root.line(Style.space(9))
+            height: root.line(Style.space(13))
+            x: hintCard.levelX(index) + hintCard.levelW + root.px((hintCard.levelGap - width) / 2)
+            y: root.px((hintCard.gridH - height) / 2)
+            rotation: root.levelTo < root.levelFrom ? 180 : 0
+            preferredRendererType: Shape.CurveRenderer
+            ShapePath {
+              strokeColor: "transparent"
+              fillColor: root.carryArrowColor
+              startX: 0; startY: 0
+              PathLine { x: tri.width; y: tri.height / 2 }
+              PathLine { x: 0; y: tri.height }
+              PathLine { x: 0; y: 0 }
+            }
+          }
+        }
+
+        SlotMarker {
+          id: levelMarker
+          width: hintCard.levelW
+          height: hintCard.gridH
+          ink: Commons.Color.popups.text
+          accent: Commons.Color.accent
+          dpr: root.dpr
+
+          ParallelAnimation {
+            id: levelSlide
+            NumberAnimation { id: levelSlideX; target: levelMarker; property: "x"; duration: Style.duration(120); easing.type: Easing.Bezier; easing.bezierCurve: Style.easeOut }
+          }
+        }
+
+        // Pictures over the cells and the marker.
+        Repeater {
+          model: 3
+          delegate: LevelPicture {
+            required property int index
+            level: index
+            x: hintCard.levelX(index)
+            width: hintCard.levelW
+            height: hintCard.gridH
+            ink: index === root.levelTo ? Commons.Color.background : Commons.Color.popups.text
+            opacity: index === root.levelTo ? 1 : 0.7
+          }
+        }
+      }
+
+      // A carry or a level change names the window: its app's icon (or first letter) and name.
       Row {
         id: hintCaption
-        visible: root.hintCarry
+        visible: hintCard.captioned
         x: hintCard.borderLeft + hintCard.pad + (hintCard.innerW - implicitWidth) / 2
         y: hintGrid.y + hintCard.gridH + hintCard.cellGap * 2
         spacing: Style.space(5)
@@ -1322,7 +1551,7 @@ Item {
           Image {
             id: hintAppIcon
             anchors.fill: parent
-            source: root.hintCarry ? root.hintIcon : ""
+            source: hintCard.captioned ? root.hintIcon : ""
             sourceSize: Qt.size(width * 2, height * 2)
             asynchronous: false
             visible: status === Image.Ready

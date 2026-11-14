@@ -31,6 +31,10 @@ a bar widget in the same shape, and an optional set of touchpad gestures built a
   icon and name under the grid; the slot it left shows what is still there. The carry hint stays
   a little longer (about 0.75 s). It stays away while the overview is open and on a workspace
   with a fullscreen window.
+- **Level hint:** when the focused window changes level (a 4-finger spread or pinch, or Super + T /
+  Super + O) the same card shows three cells, tiled, floating and popped, with pictures of each:
+  the new level named on top and accent-filled, a triangle in each gap it crossed pointing the
+  way it went (a Super jump crosses two), and the app under it.
 
 ## Install
 
