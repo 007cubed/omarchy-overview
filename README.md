@@ -15,7 +15,7 @@ a bar widget in the same shape, and an optional set of touchpad gestures built a
   or Enter goes (hover and arrow keys alike) gets a ring just outside the tile; the window under
   the pointer gets a light wash; a hovered number gets an outline and an open hand
 - While dragging, the copy follows the pointer, what was lifted dims, and the target is the tile
-  nearest the copy, counted in whole tiles per axis; a fifth of a tile already reaches the next
+  nearest the copy, counted in whole tiles per axis; 15 % of a tile already reaches the next
   one, so swaps stay short on a touchpad (accent ring and wash); the line under the grid says what
   the drop does ("Move firefox: 2 → 7 · Esc cancels", "Swap 2 ↔ 7"). Esc cancels the drag; a
   drop on its own tile does nothing

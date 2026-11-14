@@ -497,9 +497,9 @@ Item {
 
   // Where a drag lands: the tile nearest the dragged copy, counted per axis in
   // whole tiles (width across, height down, so wide and tall tiles weigh the
-  // same). A fifth of a tile already reaches the neighbour, which keeps long
+  // same). 15 % of a tile already reaches the neighbour, which keeps long
   // swaps short on a touchpad. The ring and status line show the result.
-  readonly property real dropThreshold: 0.2
+  readonly property real dropThreshold: 0.15
   function dropSlot() {
     if (root.pressSlot < 1) return -1
     function steps(distance, size) {
