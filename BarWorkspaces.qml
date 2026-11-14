@@ -1,0 +1,271 @@
+import QtQuick
+import Quickshell
+import Quickshell.Hyprland
+import Quickshell.Io
+import qs.Commons
+import qs.Commons as Commons
+import qs.Ui
+
+// Bar workspaces in the overview's 5x2 shape: slots 1-5 are the top row and
+// 6-10 the bottom one, so a row toggle (4 fingers down) shows as a move up or
+// down. Two looks, picked by the "style" setting on the bar layout entry:
+//   "grid"  a small 5x2 block of cells; the accent cell slides to the slot
+//   "row"   the current row's five numbers, sliding up or down to the other
+//           row, and a ▴/▾ that toggles row (accent when the other row has windows)
+// Click a slot to go there; the wheel steps through the slots.
+// Ported down from Omarchy's own Workspaces.qml (monitor blocks, click, wheel).
+BarWidget {
+  id: root
+  moduleName: "guykawaii.overview"
+
+  readonly property string style: root.setting("style", "grid")
+  readonly property int slots: 10
+  readonly property int columns: 5
+
+  readonly property color foreground: root.bar ? root.bar.barForeground : Commons.Color.foreground
+  readonly property color accent: Commons.Color.accent
+
+  // ---- monitor and slots (as in Omarchy's Workspaces.qml) ---------------------
+
+  // Every monitor has slots 1-10 of its own, which Hyprland numbers in a block
+  // of ten per monitor: 1-10, 11-20, and so on. Each bar shows its own block.
+  readonly property var monitor: {
+    var window = root.QsWindow.window
+    var screen = window ? window.screen : null
+    return screen ? Hyprland.monitorFor(screen) : Hyprland.focusedMonitor
+  }
+  readonly property string monitorName: root.monitor ? root.monitor.name : ""
+
+  // Connector -> block, from the file Hyprland keeps them in.
+  property var blocks: ({})
+
+  function readBlocks(text) {
+    var next = {}
+    var lines = String(text || "").split("\n")
+    for (var i = 0; i < lines.length; i++) {
+      var fields = lines[i].split("\t")
+      if (fields.length >= 3 && fields[1] !== "") next[fields[1]] = parseInt(fields[0], 10)
+    }
+    root.blocks = next
+  }
+
+  FileView {
+    path: (Quickshell.env("XDG_STATE_HOME") || Quickshell.env("HOME") + "/.local/state") + "/omarchy/monitor-workspaces"
+    watchChanges: true
+    printErrors: false
+    onFileChanged: reload()
+    onLoaded: root.readBlocks(text())
+    onLoadFailed: root.readBlocks("")
+  }
+
+  readonly property int activeId: root.monitor && root.monitor.activeWorkspace ? root.monitor.activeWorkspace.id : -1
+
+  // Until Hyprland has written the file, the workspace a monitor shows is in
+  // its own block.
+  readonly property int block: {
+    var block = root.blocks[root.monitorName]
+    if (block !== undefined) return block
+    return root.activeId > 0 ? Math.floor((root.activeId - 1) / root.slots) : 0
+  }
+
+  // The slot (1-10) the monitor shows, or -1 when it shows another block's.
+  readonly property int activeSlot: root.activeId > 0 && Math.floor((root.activeId - 1) / root.slots) === root.block
+    ? (root.activeId - 1) % root.slots + 1 : -1
+  // 0 for the top row, 1 for the bottom one.
+  readonly property int row: root.activeSlot > root.columns ? 1 : 0
+
+  function workspaceById(id) {
+    var values = Hyprland.workspaces.values
+    for (var i = 0; i < values.length; i++) {
+      if (values[i].id === id) return values[i]
+    }
+    return null
+  }
+
+  function occupied(slot) {
+    var workspace = root.workspaceById(root.block * root.slots + slot)
+    return workspace !== null && workspace.toplevels.values.length > 0
+  }
+
+  function focusSlot(slot) {
+    if (root.bar) root.bar.run("hyprctl dispatch " + Util.shellQuote("o.workspaces.focus(" + slot + ", \"" + root.monitorName + "\")"))
+  }
+
+  function toggleRow() {
+    var slot = root.activeSlot > 0 ? root.activeSlot : 1
+    root.focusSlot(slot <= root.columns ? slot + root.columns : slot - root.columns)
+  }
+
+  // A wheel notch moves one slot, and a touchpad adds up its smaller deltas
+  // until they make a notch's worth. It holds at either end.
+  property real wheelAccumulator: 0
+
+  function scrollSlots(delta) {
+    var wheel = Util.wheelSteps(root.wheelAccumulator, delta)
+    root.wheelAccumulator = wheel.remainder
+    if (wheel.steps === 0 || root.activeSlot < 1) return
+    var target = Util.clamp(root.activeSlot - wheel.steps, 1, root.slots)
+    if (target !== root.activeSlot) root.focusSlot(target)
+  }
+
+  // Quickshell credits every workspace switch to the focused monitor and misses
+  // some changes, so ask Hyprland for the truth after them (as the stock widget does).
+  Connections {
+    target: Hyprland
+    function onRawEvent(event) {
+      var name = event ? String(event.name) : ""
+      var switched = name === "workspacev2" && root.monitor !== null && root.monitor.focused
+      if (switched || name === "moveworkspacev2" || name === "changeworkspaceid") {
+        Hyprland.refreshMonitors()
+        Hyprland.refreshWorkspaces()
+      }
+    }
+  }
+
+  // Quickshell's first idea of the active workspace can be stale after a restart.
+  Component.onCompleted: {
+    Hyprland.refreshMonitors()
+    Hyprland.refreshWorkspaces()
+  }
+
+  readonly property real trailingGap: Style.spaceReal(1.5)
+
+  implicitWidth: (look.item ? look.item.implicitWidth : 0) + trailingGap
+  implicitHeight: root.barSize
+
+  Loader {
+    id: look
+    anchors.left: parent.left
+    anchors.verticalCenter: parent.verticalCenter
+    sourceComponent: root.style === "row" ? rowLook : gridLook
+  }
+
+  // ---- "grid": a 5x2 block of cells -------------------------------------------
+
+  Component {
+    id: gridLook
+
+    Item {
+      id: grid
+      readonly property int gap: Math.max(1, Style.space(2))
+      readonly property int cellH: Math.max(4, Math.floor((root.barSize - Style.space(8) - gap) / 2))
+      readonly property int cellW: Math.round(cellH * 1.6)
+      readonly property int pad: Style.space(4)
+
+      function cellX(slot) { return pad + ((slot - 1) % root.columns) * (cellW + gap) }
+      function cellY(slot) { return (root.barSize - 2 * cellH - gap) / 2 + Math.floor((slot - 1) / root.columns) * (cellH + gap) }
+
+      implicitWidth: pad * 2 + root.columns * cellW + (root.columns - 1) * gap
+      implicitHeight: root.barSize
+
+      // Cells with windows read solid, empty ones faint.
+      Repeater {
+        model: root.slots
+        delegate: Rectangle {
+          required property int index
+          x: grid.cellX(index + 1)
+          y: grid.cellY(index + 1)
+          width: grid.cellW
+          height: grid.cellH
+          radius: Math.min(2, Style.cornerRadius)
+          color: Util.alpha(root.foreground, root.occupied(index + 1) ? 0.75 : 0.25)
+        }
+      }
+
+      // The slot the monitor shows, sliding between cells and rows.
+      Rectangle {
+        visible: root.activeSlot > 0
+        x: grid.cellX(Math.max(1, root.activeSlot))
+        y: grid.cellY(Math.max(1, root.activeSlot))
+        width: grid.cellW
+        height: grid.cellH
+        radius: Math.min(2, Style.cornerRadius)
+        color: root.accent
+        Behavior on x { NumberAnimation { duration: Style.duration(160); easing.type: Easing.Bezier; easing.bezierCurve: Style.easeOut } }
+        Behavior on y { NumberAnimation { duration: Style.duration(160); easing.type: Easing.Bezier; easing.bezierCurve: Style.easeOut } }
+      }
+
+      MouseArea {
+        anchors.fill: parent
+        onClicked: function(mouse) {
+          var col = Math.floor((mouse.x - grid.pad + grid.gap / 2) / (grid.cellW + grid.gap))
+          var row = mouse.y < root.barSize / 2 ? 0 : 1
+          root.focusSlot(row * root.columns + Util.clamp(col, 0, root.columns - 1) + 1)
+        }
+        onWheel: function(wheel) { root.scrollSlots(wheel.angleDelta.y) }
+      }
+    }
+  }
+
+  // ---- "row": the current row's numbers ----------------------------------------
+
+  Component {
+    id: rowLook
+
+    Row {
+      readonly property real buttonWidth: Style.space(20)
+
+      // Both rows stacked, one bar-height each; the window shows the current one.
+      Item {
+        width: root.columns * parent.buttonWidth
+        height: root.barSize
+        clip: true
+
+        Column {
+          id: rowStack
+          y: -root.row * root.barSize
+          Behavior on y { NumberAnimation { duration: Style.duration(180); easing.type: Easing.Bezier; easing.bezierCurve: Style.easeOut } }
+
+          Repeater {
+            model: 2
+            delegate: Row {
+              required property int index
+              readonly property int rowIndex: index
+
+              Repeater {
+                model: root.columns
+                delegate: WidgetButton {
+                  required property int index
+                  readonly property int slot: rowIndex * root.columns + index + 1
+                  readonly property bool shown: root.activeSlot === slot
+
+                  bar: root.bar
+                  text: String(slot % 10)
+                  foreground: shown ? root.accent : root.foreground
+                  opacity: shown || root.occupied(slot) ? 1 : 0.5
+                  horizontalMargin: 6
+                  verticalPadding: 6
+                  fixedWidth: Style.space(20)
+                  fixedHeight: root.barSize
+                  onPressed: root.focusSlot(slot)
+                  onWheelMoved: function(delta) { root.scrollSlots(delta) }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Points at the hidden row; accent when it has windows. Click toggles row.
+      WidgetButton {
+        readonly property int otherRow: 1 - root.row
+        readonly property bool otherOccupied: {
+          for (var i = 1; i <= root.columns; i++)
+            if (root.occupied(otherRow * root.columns + i)) return true
+          return false
+        }
+
+        bar: root.bar
+        text: root.row === 0 ? "▾" : "▴"
+        foreground: otherOccupied ? root.accent : root.foreground
+        opacity: otherOccupied ? 1 : 0.5
+        horizontalMargin: 4
+        verticalPadding: 6
+        fixedWidth: Style.space(14)
+        fixedHeight: root.barSize
+        onPressed: root.toggleRow()
+        onWheelMoved: function(delta) { root.scrollSlots(delta) }
+      }
+    }
+  }
+}

@@ -4,8 +4,20 @@
   "name": "Workspace Overview",
   "version": "1.0.0",
   "author": "GuyKawaii",
-  "description": "Live overview of every workspace on the focused monitor. Drag windows between workspaces and drag workspaces to swap them.",
-  "kinds": ["overlay"],
+  "description": "Live overview of every workspace on the focused monitor, and bar workspaces in the same 5x2 shape. Drag windows between workspaces and drag workspaces to swap them.",
+  "kinds": [
+    "overlay",
+    "bar-widget"
+  ],
   "keepLoaded": true,
-  "entryPoints": { "overlay": "Overview.qml" }
+  "entryPoints": {
+    "overlay": "Overview.qml",
+    "barWidget": "BarWorkspaces.qml"
+  },
+  "barWidget": {
+    "displayName": "Workspaces (5x2)",
+    "description": "Workspace slots as the overview's 5x2 grid",
+    "category": "Compositor",
+    "allowMultiple": false
+  }
 }

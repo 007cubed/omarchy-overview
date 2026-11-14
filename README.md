@@ -1,7 +1,7 @@
 # Workspace Overview
 
 A live overview of every workspace on the focused monitor for [Omarchy](https://omarchy.org/),
-plus an optional set of touchpad gestures built around it.
+a bar widget in the same shape, and an optional set of touchpad gestures built around it.
 
 <!-- ![Workspace Overview](preview.png) -->
 
@@ -9,7 +9,12 @@ plus an optional set of touchpad gestures built around it.
 - **Click** a window to focus it, or a workspace to go there
 - **Drag** a window onto another workspace to move it
 - **Drag a number badge** onto another workspace to swap the two
+- While dragging, the start tile has a dashed outline, the target a solid one, and the line
+  under the grid says what the drop does ("Move firefox: 2 → 7", "Swap 2 ↔ 7")
 - **1–0** jump to that slot, **Esc** or a click on the background closes
+- **Switch hint:** outside the overview, every workspace switch flashes a small 5×2 card at the
+  bottom of the screen, its highlight sliding from the old slot to the new one. It stays away
+  while the overview is open and on a workspace with a fullscreen window.
 
 ## Install
 
@@ -31,6 +36,27 @@ o.bind("SUPER + ALT + O", "Workspace overview", function()
 end)
 ```
 
+## Bar widget (optional)
+
+The plugin is also a bar widget that shows the ten slots as the same 5×2 grid, 1–5 over 6–10,
+so a row change reads as a move up or down. Put it in place of `omarchy.workspaces` in
+`~/.config/omarchy/shell.json`:
+
+```json
+"left": [
+  { "id": "omarchy.menu" },
+  { "id": "guykawaii.overview", "style": "grid" }
+]
+```
+
+| `style` | Looks like |
+|---|---|
+| `grid` (default) | a small 5×2 block of cells; windows make a cell solid, and the accent cell slides to the slot you are on |
+| `row` | the current row's five numbers, sliding up or down when the row changes, plus ▴/▾ pointing at the other row (accent when it has windows; click to toggle row) |
+
+Click a slot to go there; the wheel steps through the slots. The setting applies live. Unlike
+Omarchy's widget it does not show or cycle the workspace layout.
+
 ## Gestures (optional)
 
 `hypr/gestures.lua` is a full touchpad gesture set for Hyprland 0.56+. Load it at the end of
@@ -46,7 +72,7 @@ dofile(os.getenv("HOME") .. "/.config/omarchy/plugins/guykawaii.overview/hypr/ge
 | 3 fingers ↑ | fullscreen |
 | 3 fingers ↓ | scratchpad |
 | 4 fingers ↑ | open the overview |
-| 4 fingers ↓ | close the overview |
+| 4 fingers ↓ | close the overview; outside it, toggle row: go to the slot above or below (3 ↔ 8), sliding vertically |
 | 4 fingers ← → | carry the focused window to the next/previous workspace, with a short slide |
 | Super + 3 fingers | resize: the dividers follow your fingers, on both axes |
 | Super + 3-finger tap | reset the split under the cursor to 50/50 |
@@ -57,10 +83,13 @@ copy the lines you want instead of loading the file.
 
 ### How it works
 
-- **Carry slide.** Omarchy turns workspace animations off, so the carry gesture turns the slide
-  on just for its own move (a critically damped spring, about 0.16 s) and off again 0.3 s later.
-  Workspace keys still jump. Only the newest swipe turns it off, so quick swipes don't cut each
-  other short.
+- **Slides.** Omarchy turns workspace animations off, so the carry and row gestures turn the
+  slide on just for their own move (a critically damped spring, about 0.16 s; sideways for carry,
+  vertical for rows) and off again 0.3 s later. Workspace keys still jump. Only the newest swipe
+  turns it off, so quick swipes don't cut each other short. With animations off it only moves.
+- **Rows.** The ten slots are the overview's 5×2 grid. 4 fingers down closes the overview when
+  its layer is open, and otherwise toggles row. Like Super + number, toggling into an empty slot
+  makes that workspace. A 3-finger swipe from 5 to 6 still crosses rows.
 - **Resize.** Hyprland's built-in `resize` gesture only snaps the window being resized, so the
   windows next to it trail behind, and it does nothing when the cursor sits on the half of a
   window next to a screen edge. This one feeds the finger movement to the resize dispatcher and
