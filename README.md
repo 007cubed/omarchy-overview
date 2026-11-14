@@ -12,6 +12,13 @@ a bar widget in the same shape, and an optional set of touchpad gestures built a
 - While dragging, the start tile has a dashed outline, the target a solid one, and the line
   under the grid says what the drop does ("Move firefox: 2 → 7", "Swap 2 ↔ 7")
 - **1–0** jump to that slot, **Esc** or a click on the background closes
+- **Arrows** or **hjkl** move a selection (it starts on the current slot and follows the
+  pointer), **Enter** goes there
+- **Shift + 1–0** moves the window under the pointer (or the selected slot's focused window) to
+  that slot and stays in the overview. It goes by the key's place on the number row, so it works
+  on any keyboard layout
+- The line under the grid names what is under the pointer ("Go to 7", "firefox — title"), and
+  lists the controls when nothing is
 - **Pointer:** opening puts the pointer on the current workspace's tile. Closing without going
   anywhere puts it back where it was; going somewhere leaves it on the window that got focus (or
   the middle of the screen), so focus-follows-mouse keeps that focus. Off with `cursor:no_warps`

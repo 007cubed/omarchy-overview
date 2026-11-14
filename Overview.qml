@@ -19,6 +19,12 @@ import qs.Ui
 // grid says what the drop will do.
 //                       (Super + drag anywhere too, when Hyprland lets Super through)
 //   1-9, 0              go to that slot;  Esc closes
+//   arrows / hjkl       move the selection (it starts on the current slot and
+//                       follows the pointer);  Enter goes there
+//   Shift + 1-9, 0      move the window under the pointer (or the selected
+//                       slot's) to that slot, staying in the overview
+// The line under the grid names what is under the pointer ("Go to 7",
+// "firefox — title"), and the controls when nothing is.
 // The pointer jumps to the current tile on open, back on a plain close, and to
 // the focused window after going somewhere (see "pointer warps").
 // Outside the overview, a switch to another workspace flashes a small 5x2 card
@@ -66,6 +72,13 @@ Item {
   property size dragSize: Qt.size(0, 0)
   property bool dragging: false
   property int hoverSlot: -1
+  // Keyboard selection and what the pointer is over, outside a drag. `keyed`
+  // says the keys moved the selection last, so it, not the pointer, is named.
+  property int selectedSlot: -1
+  property int pointSlot: -1
+  property var pointToplevel: null
+  property bool keyed: false
+  property real hoverHoldUntil: 0
   // Super as seen through key events; pointer modifiers may not carry it.
   property bool superHeld: false
 
@@ -89,6 +102,10 @@ Item {
     root.resetPress()
     root.superHeld = false
     root.went = false
+    root.selectedSlot = Math.max(1, root.activeSlot())
+    root.pointSlot = -1
+    root.pointToplevel = null
+    root.keyed = false
     root.opened = true
     Qt.callLater(function() { keyCatcher.forceActiveFocus() })
   }
@@ -209,6 +226,11 @@ Item {
     var y = Math.round(root.monY + root.tileY(slot) + stage.tileH / 2)
     Hyprland.dispatch('function() ' + root.noWarps + '_G.ovCursor = hl.get_cursor_pos(); '
       + 'hl.dispatch(hl.dsp.cursor.move({ x = ' + x + ', y = ' + y + ' })) end')
+    // The layer gets no motion from a warp, and while the stage zooms in Qt
+    // replays hover at the pointer's old place, so hover starts from where the
+    // warp lands and ignores the pointer until the zoom is over.
+    root.hoverHoldUntil = Date.now() + Style.duration(120) + 150
+    root.hoverAt(Qt.point(root.tileX(slot) + stage.tileW / 2, root.tileY(slot) + stage.tileH / 2))
   }
 
   function restoreCursor() {
@@ -329,6 +351,64 @@ Item {
     if (root.dragging) root.hoverSlot = root.dropSlot()
   }
 
+  // Hover, outside a press: the selection follows the pointer.
+  function hoverAt(p) {
+    var slot = root.slotAt(p)
+    root.pointSlot = slot
+    root.pointToplevel = slot > 0 ? (root.windowAt(slot, p) || {}).modelData || null : null
+    if (slot > 0) {
+      root.selectedSlot = slot
+      root.keyed = false
+    }
+  }
+
+  function clearPoint() {
+    root.pointSlot = -1
+    root.pointToplevel = null
+  }
+
+  // Arrows and hjkl step the selection around the grid, stopping at its edges.
+  function moveSelection(dx, dy) {
+    var slot = Math.max(1, root.selectedSlot)
+    var col = Math.max(0, Math.min(root.columns - 1, (slot - 1) % root.columns + dx))
+    var row = Math.max(0, Math.min(root.rows - 1, Math.floor((slot - 1) / root.columns) + dy))
+    root.selectedSlot = row * root.columns + col + 1
+    root.pointToplevel = null
+    root.keyed = true
+  }
+
+  // Shift + number: the window under the pointer, else the selected slot's
+  // focused window, else its first one.
+  function moveTarget() {
+    if (root.pointToplevel && !root.keyed) return root.pointToplevel
+    var active = Hyprland.activeToplevel
+    if (active && root.slotOf(active) === root.selectedSlot) return active
+    var list = root.windowsIn(root.selectedSlot)
+    return list.length > 0 ? list[0] : null
+  }
+
+  // The slot of a Shift + number key: by its place on the number row (evdev
+  // 2-11, +8 on Wayland), since Shift turns the digits into whatever the layout
+  // puts there, or by the digit when it stays one.
+  function shiftedSlot(event) {
+    if (event.key >= Qt.Key_0 && event.key <= Qt.Key_9) return event.key === Qt.Key_0 ? 10 : event.key - Qt.Key_0
+    return event.nativeScanCode >= 10 && event.nativeScanCode <= 19 ? event.nativeScanCode - 9 : -1
+  }
+
+  // The line under the grid.
+  function statusText() {
+    if (root.dragging) return root.dragText()
+    var t = root.keyed ? null : root.pointToplevel
+    if (t) {
+      var ipc = t.lastIpcObject
+      var name = String((ipc && ipc["class"]) || "")
+      var title = String(t.title || "")
+      return name && title && name !== title ? strings.t("status.window").arg(name).arg(title) : (title || name)
+    }
+    var slot = root.keyed ? root.selectedSlot : root.pointSlot
+    return slot > 0 ? strings.t("status.go").arg(slot % 10) : strings.t("hint")
+  }
+
   function endPress(p) {
     var kind = root.pressKind
     var from = root.pressSlot
@@ -438,6 +518,26 @@ Item {
         } else if (event.key === Qt.Key_Escape) {
           root.dismiss()
           event.accepted = true
+        } else if ((event.modifiers & Qt.ShiftModifier) && root.shiftedSlot(event) > 0) {
+          var target = root.moveTarget()
+          if (target) root.moveWindow(target, root.shiftedSlot(event))
+          event.accepted = true
+        } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+          if (root.selectedSlot > 0) root.focusSlot(root.selectedSlot)
+          root.dismiss()
+          event.accepted = true
+        } else if (event.key === Qt.Key_Left || event.key === Qt.Key_H) {
+          root.moveSelection(-1, 0)
+          event.accepted = true
+        } else if (event.key === Qt.Key_Right || event.key === Qt.Key_L) {
+          root.moveSelection(1, 0)
+          event.accepted = true
+        } else if (event.key === Qt.Key_Up || event.key === Qt.Key_K) {
+          root.moveSelection(0, -1)
+          event.accepted = true
+        } else if (event.key === Qt.Key_Down || event.key === Qt.Key_J) {
+          root.moveSelection(0, 1)
+          event.accepted = true
         } else if (event.key >= Qt.Key_0 && event.key <= Qt.Key_9) {
           var slot = event.key === Qt.Key_0 ? 10 : event.key - Qt.Key_0
           root.focusSlot(slot)
@@ -485,13 +585,15 @@ Item {
           readonly property bool target: root.dragging && root.hoverSlot === slot && root.pressSlot !== slot
           // Where a drag started: a darker hole, outlined by dragOrigin above it.
           readonly property bool origin: root.dragging && root.pressSlot === slot
+          // Where Enter goes: shown while the pointer is on a tile or the keys moved it.
+          readonly property bool selected: !root.dragging && root.selectedSlot === slot && (root.keyed || root.pointSlot > 0)
 
           x: root.tileX(slot)
           y: root.tileY(slot)
           width: stage.tileW
           height: stage.tileH
           radius: root.radius
-          color: target ? root.selectedBackground : (origin ? Qt.darker(root.background, 1.4) : root.background)
+          color: target || selected ? root.selectedBackground : (origin ? Qt.darker(root.background, 1.4) : root.background)
           border.width: active || target ? Math.max(2, Style.normalBorderWidth * 2) : Style.normalBorderWidth
           border.color: active || target ? root.accent : Commons.Color.menu.border
         }
@@ -643,9 +745,9 @@ Item {
         y: stage.gridY + stage.gridH + root.gap
         width: Math.min(implicitWidth, stage.width - root.gap * 2)
         elide: Text.ElideRight
-        text: root.dragging ? root.dragText() : strings.t("hint")
+        text: root.statusText()
         color: root.foreground
-        opacity: root.dragging ? 1 : 0.7
+        opacity: text === strings.t("hint") ? 0.7 : 1
         font.family: root.fontFamily
         font.pixelSize: Style.font.body
       }
@@ -656,11 +758,16 @@ Item {
         anchors.fill: parent
         z: 50
         preventStealing: true
+        hoverEnabled: true
         cursorShape: root.dragging ? Qt.ClosedHandCursor : Qt.ArrowCursor
         onPressed: function(mouse) {
           root.beginPress(Qt.point(mouse.x, mouse.y), root.superHeld || (mouse.modifiers & Qt.MetaModifier) !== 0)
         }
-        onPositionChanged: function(mouse) { root.movePress(Qt.point(mouse.x, mouse.y)) }
+        onPositionChanged: function(mouse) {
+          if (pressed) root.movePress(Qt.point(mouse.x, mouse.y))
+          else if (Date.now() >= root.hoverHoldUntil) root.hoverAt(Qt.point(mouse.x, mouse.y))
+        }
+        onExited: root.clearPoint()
         onReleased: function(mouse) { root.endPress(Qt.point(mouse.x, mouse.y)) }
         onCanceled: root.resetPress()
       }
