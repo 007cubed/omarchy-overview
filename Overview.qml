@@ -746,7 +746,7 @@ Item {
           width: Math.max(height, label.implicitWidth + Style.spacing.md * 2)
           height: label.implicitHeight + Style.spacing.sm * 2
           radius: root.radius
-          color: active ? root.accent : Qt.rgba(0, 0, 0, 0.45)
+          color: active ? root.accent : Util.alpha(root.background, 0.75)
 
           Text {
             id: label
@@ -817,7 +817,7 @@ Item {
         width: root.dragSize.width
         height: root.dragSize.height
         radius: root.radius
-        color: root.pressKind === "workspace" ? Qt.rgba(0, 0, 0, 0.25) : root.background
+        color: root.pressKind === "workspace" ? Util.alpha(root.background, 0.5) : root.background
         border.width: Math.max(2, Style.normalBorderWidth * 2)
         border.color: root.accent
         clip: true
@@ -1046,6 +1046,9 @@ Item {
             readonly property var workspace: { root.hintMapped; return root.workspaceById(root.hintBlock * root.slots + index + 1) }
             occupied: !!workspace && workspace.toplevels.values.length > 0
             ink: Commons.Color.popups.text
+            // On a carry the other cells step back, so the accent arrow reads
+            // over solid and empty cells alike; the origin keeps its true state.
+            opacity: root.hintCarry && index + 1 !== root.hintFrom ? 0.35 : 1
             x: hintCard.cellX(index + 1)
             y: hintCard.cellY(index + 1)
             width: hintCard.cellW
@@ -1056,7 +1059,8 @@ Item {
         // A carry's track: from the middle of the slot the window left towards
         // the slot it went to, stopping 3 px before that cell (the marker's
         // extra pixel and some air), so it never runs under the marker. One
-        // colour, the card's text. Rotated, so any direction works.
+        // colour, the theme's accent, over cells that step back during a carry.
+        // Rotated, so any direction works.
         Item {
           id: hintArrow
 
@@ -1077,7 +1081,7 @@ Item {
           readonly property real length: fullLength * grow
           readonly property int headLength: Style.space(5)
           readonly property int headHalf: Style.space(3)
-          readonly property color ink: Commons.Color.popups.text
+          readonly property color ink: Commons.Color.accent
 
           visible: root.hintCarry && root.hintFrom !== root.hintTo && length > headLength
           // Its left middle sits on the origin's centre, and it turns around it.
