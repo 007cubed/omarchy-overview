@@ -15,7 +15,8 @@
 --   SUPER + 4 swipe    drag the window under the cursor
 --   4 spread           lift the window: tiled -> floating
 --   SUPER + 4 spread   pop it: floating, centred, on top on every workspace
---   4 pinch (+SUPER)   put it back one step: popped -> floating -> tiled
+--   4 pinch            put it back one step: popped -> floating -> tiled
+--   SUPER + 4 pinch    straight back into the tiling
 --
 -- Assumes Omarchy's ten workspace slots per monitor (o.workspaces).
 
@@ -181,13 +182,13 @@ hl.gesture({ fingers = 3, direction = "swipe", mods = "SUPER", action = {
 --   spread          lift one step: tiled -> floating, in place
 --   SUPER + spread  pop: floating 1300x900, centred, pinned on top on every
 --                   workspace (Omarchy's SUPER+O look, and its "pop" tag)
---   pinch (either)  lower one step: fullscreen -> normal, popped -> floating,
+--   pinch           lower one step: fullscreen -> normal, popped -> floating,
 --                   floating -> tiled
--- Pinch works with or without SUPER, so enough pinches always get a window back
--- into the tiling, also one floated or popped by keys. A gesture whose target
--- is already reached does nothing, so a misread one can't flip anything back.
--- Fire as the pinch is recognised. Hyprland matches mods exactly, so the plain
--- and SUPER pinch are both bound.
+--   SUPER + pinch   straight back to tiled, from any of those
+-- SUPER is the big jump both ways. Pinch works with or without SUPER (Hyprland
+-- matches mods exactly, so both are bound), so a window floated or popped by
+-- keys always has a way back. A gesture whose target is already reached does
+-- nothing, so a misread one can't flip anything back. Fire as it is recognised.
 local function act(fn)
   return { start = function()
     local w = hl.get_active_window()
@@ -219,10 +220,18 @@ local function lower(w)
     hl.dispatch(hl.dsp.window.float({ action = "off" }))
   end
 end
+local function settle(w)
+  if w.fullscreen ~= 0 then hl.dispatch(hl.dsp.window.fullscreen({ action = "unset" })) end
+  if w.pinned then
+    hl.dispatch(hl.dsp.window.pin({}))
+    hl.dispatch(hl.dsp.window.tag({ tag = "-pop" }))
+  end
+  if w.floating then hl.dispatch(hl.dsp.window.float({ action = "off" })) end
+end
 hl.gesture({ fingers = 4, direction = "pinchout", action = act(lift) })
 hl.gesture({ fingers = 4, direction = "pinchout", mods = "SUPER", action = act(pop) })
 hl.gesture({ fingers = 4, direction = "pinchin", action = act(lower) })
-hl.gesture({ fingers = 4, direction = "pinchin", mods = "SUPER", action = act(lower) })
+hl.gesture({ fingers = 4, direction = "pinchin", mods = "SUPER", action = act(settle) })
 -- Broad "swipe" rules last, so they don't overshadow the directional ones.
 hl.gesture({ fingers = 4, direction = "swipe", mods = "SUPER", action = "move" })
 
