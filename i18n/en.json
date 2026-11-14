@@ -9,5 +9,9 @@
   "level.tiled": "Tiled",
   "level.floating": "Floating",
   "level.popped": "Popped",
-  "drag.cancel": "Esc cancels"
+  "drag.cancel": "Esc cancels",
+  "layout.dwindle": "Tiling",
+  "layout.scrolling": "Scrolling",
+  "layout.floating": "Floating",
+  "layout.tip": "%1 · click for %2"
 }

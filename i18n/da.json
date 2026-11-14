@@ -9,5 +9,9 @@
   "level.tiled": "Fliselagt",
   "level.floating": "Svævende",
   "level.popped": "Poppet ud",
-  "drag.cancel": "Esc annullerer"
+  "drag.cancel": "Esc annullerer",
+  "layout.dwindle": "Fliselagt",
+  "layout.scrolling": "Rullende",
+  "layout.floating": "Svævende",
+  "layout.tip": "%1 · klik for %2"
 }

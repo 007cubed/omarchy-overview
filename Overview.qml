@@ -15,11 +15,11 @@ import qs.Ui
 //   drag a window       move it to the workspace it is dropped on
 //   drag a number badge swap the whole workspace with the one it is dropped on,
 //                       layouts intact (see swapSlots)
-// A drag lands on the tile under the pointer (accent ring and wash); what was
-// lifted dims and a half-size copy rides under the pointer; the line under the
-// grid says what the drop will do. Esc, or a drop outside the grid or on its
-// own tile, cancels.
 //                       (Super + drag anywhere too, when Hyprland lets Super through)
+// A drag lands on the tile nearest the dragged copy (accent ring and wash); what
+// was lifted dims; the line under the grid says what the drop will do. Esc, or a
+// drop on its own tile, cancels.
+// A scrolling or floating workspace shows Omarchy's glyph for it in its badge.
 //   1-9, 0              go to that slot;  Esc closes
 //   arrows / hjkl       move the selection (it starts on the current slot and
 //                       follows the pointer);  Enter goes there
@@ -125,6 +125,7 @@ Item {
     root.pointToplevel = null
     root.keyed = false
     root.opened = true
+    layouts.reload()
     Qt.callLater(function() { keyCatcher.forceActiveFocus() })
   }
 
@@ -169,6 +170,17 @@ Item {
 
   function workspaceId(slot) {
     return root.block * root.slots + slot
+  }
+
+  // Every workspace's layout: tiles mark scrolling and floating ones in their
+  // badge, the hint card in its cells. Read again when either shows.
+  LayoutModes { id: layouts }
+
+  // Omarchy's own glyphs for the layouts; tiling has none here (it is never marked).
+  function layoutGlyph(mode) {
+    if (mode === "scrolling") return "󰝥"
+    if (mode === "floating") return "󰔶"
+    return ""
   }
 
   function activeSlot() {
@@ -764,22 +776,41 @@ Item {
           // Flush in the tile's corner; it shares the tile's rounding there.
           x: root.tileX(slot)
           y: root.tileY(slot) + stage.tileH - height
-          width: Math.max(height, label.implicitWidth + Style.spacing.md * 2)
-          height: label.implicitHeight + Style.spacing.sm * 2
+          readonly property string mode: layouts.mode(root.workspaceId(badge.slot))
+          readonly property string glyph: root.layoutGlyph(mode)
+          readonly property color ink: badge.active ? root.background : root.foreground
+          width: root.px(Math.max(height, label.implicitWidth + Style.spacing.md * 2))
+          height: number.implicitHeight + Style.spacing.sm * 2
           radius: root.radius
           color: active ? root.accent : Util.alpha(root.background, lit ? 0.95 : 0.75)
           border.width: lit ? root.thickLine : 0
           border.color: root.foreground
 
-          Text {
+          // The number, then the layout's glyph for a scrolling or floating
+          // workspace; a tiling one's badge is the number alone.
+          Row {
             id: label
-            textFormat: Text.PlainText
             anchors.centerIn: parent
-            text: String(badge.slot % 10)
-            color: badge.active ? root.background : root.foreground
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.display
-            font.bold: true
+            spacing: Style.spacing.sm
+
+            Text {
+              id: number
+              textFormat: Text.PlainText
+              text: String(badge.slot % 10)
+              color: badge.ink
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.display
+              font.bold: true
+            }
+            Text {
+              visible: badge.glyph !== ""
+              anchors.verticalCenter: parent.verticalCenter
+              textFormat: Text.PlainText
+              text: badge.glyph
+              color: badge.active ? badge.ink : layouts.color(badge.mode, badge.ink)
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.heading
+            }
           }
         }
       }
@@ -901,15 +932,30 @@ Item {
         // A workspace's copy shows its number. (Not a snapshot of the tile: a
         // ShaderEffectSource of the overview inside itself crashed Quickshell
         // when the overview closed.)
-        Text {
-          textFormat: Text.PlainText
+        Row {
           visible: root.pressKind === "workspace"
           anchors.centerIn: parent
-          text: String(root.pressSlot % 10)
-          color: root.foreground
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.display
-          font.bold: true
+          spacing: Style.spacing.sm
+          readonly property string mode: root.pressSlot > 0 ? layouts.mode(root.workspaceId(root.pressSlot)) : "dwindle"
+          readonly property string glyph: root.layoutGlyph(mode)
+
+          Text {
+            textFormat: Text.PlainText
+            text: String(root.pressSlot % 10)
+            color: root.foreground
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.display
+            font.bold: true
+          }
+          Text {
+            visible: parent.glyph !== ""
+            anchors.verticalCenter: parent.verticalCenter
+            textFormat: Text.PlainText
+            text: parent.glyph
+            color: layouts.color(parent.mode, root.foreground)
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.heading
+          }
         }
       }
     }
@@ -1092,6 +1138,7 @@ Item {
     if (ws && ws.hasFullscreen) return
 
     var block = Math.floor((id - 1) / root.slots)
+    layouts.reload()
     var to = (id - 1) % root.slots + 1
     // From another block (another monitor's) there is nothing to slide from.
     var from = previous > 0 && Math.floor((previous - 1) / root.slots) === block
@@ -1264,7 +1311,10 @@ Item {
             required property int index
             readonly property var workspace: { root.hintMapped; return root.workspaceById(root.hintBlock * root.slots + index + 1) }
             occupied: !!workspace && workspace.toplevels.values.length > 0
+            mode: layouts.mode(root.hintBlock * root.slots + index + 1)
+            markColor: layouts.color(mode, Commons.Color.popups.text)
             ink: Commons.Color.popups.text
+            surface: Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g, Commons.Color.popups.background.b, 1)
             dpr: root.dpr
             // On a carry every cell steps back (the origin too: the arrow starts
             // on it), so the accent arrow keeps at least 3:1 against whatever is
@@ -1364,7 +1414,9 @@ Item {
           id: highlight
           width: hintCard.cellW
           height: hintCard.cellH
+          mode: layouts.mode(root.hintBlock * root.slots + Math.max(1, root.hintTo))
           ink: Commons.Color.popups.text
+          surface: Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g, Commons.Color.popups.background.b, 1)
           accent: Commons.Color.accent
           dpr: root.dpr
 
@@ -1420,7 +1472,8 @@ Item {
           }
           Rectangle {
             visible: pic.level === 1
-            width: root.px(pic.bw * 0.62); height: root.px(pic.bh * 0.62)
+            // Landscape, like a window, so it never reads as a layout's square.
+            width: root.px(pic.bw * 0.72); height: root.px(pic.bh * 0.5)
             x: root.px((pic.width - width) / 2); y: root.px((pic.height - height) / 2)
             color: pic.ink
           }

@@ -136,45 +136,26 @@ BarWidget {
 
   // ---- layout of the shown workspace (as in Omarchy's Workspaces.qml) ---------
 
-  property string activeMode: "dwindle"
-  property bool modeStale: false
+  // Every workspace's layout, for the marks in the cells and the button.
+  LayoutModes { id: layouts }
+  readonly property string activeMode: layouts.mode(root.activeId)
 
+  // Omarchy's glyphs for the layouts: a square tiles, a circle scrolls, a triangle floats.
   function modeGlyph(mode) {
     if (mode === "scrolling") return "󰝥"
     if (mode === "floating") return "󰔶"
     return "󱓻"
   }
 
-  // A layout only changes through Omarchy's layout commands, which ask for a
-  // refresh, or a config reload, so each workspace's mode is read once and cached.
-  property var modeCache: ({})
-  property int modeGeneration: 0
-  property int modeProcWorkspace: -1
-  property int modeProcGeneration: 0
+  function opaque(c) { return Qt.rgba(c.r, c.g, c.b, 1) }
 
-  function showActiveMode() {
-    var mode = root.modeCache[root.activeId]
-    if (mode !== undefined) root.activeMode = mode
-    else root.readMode()
-  }
+  function modeOf(slot) { return layouts.mode(root.block * root.slots + slot) }
 
-  function readMode() {
-    if (modeProc.running) {
-      root.modeStale = true
-      return
-    }
-    if (root.activeId < 1) return
-    root.modeProcWorkspace = root.activeId
-    root.modeProcGeneration = root.modeGeneration
-    modeProc.command = ["omarchy-hyprland-workspace-layout-current", String(root.activeId)]
-    modeProc.running = true
-  }
+  function refresh() { layouts.reload() }
 
-  function refresh() {
-    root.modeCache = ({})
-    root.modeGeneration++
-    root.readMode()
-  }
+  Commons.Translations { id: strings; directory: Qt.resolvedUrl("i18n") }
+  readonly property var modeOrder: ["dwindle", "scrolling", "floating"]
+  function nextMode(mode) { return root.modeOrder[(root.modeOrder.indexOf(mode) + 1) % 3] }
 
   // The layout command acts on the focused workspace, so a click on another
   // monitor's bar focuses that monitor first.
@@ -184,34 +165,6 @@ BarWidget {
     if (root.monitor && !root.monitor.focused)
       command = "hyprctl dispatch " + Util.shellQuote("hl.dsp.focus({ monitor = \"" + root.monitorName + "\" })") + " >/dev/null && " + command
     root.bar.run(command)
-  }
-
-  onActiveIdChanged: root.showActiveMode()
-
-  Connections {
-    target: Hyprland
-    function onRawEvent(event) {
-      if (event && String(event.name) === "configreloaded") root.refresh()
-    }
-  }
-
-  Process {
-    id: modeProc
-    stdout: StdioCollector {
-      onStreamFinished: {
-        var mode = text.trim()
-        // A read that started before a refresh may predate the change.
-        if (!mode || root.modeProcGeneration !== root.modeGeneration) return
-        root.modeCache[root.modeProcWorkspace] = mode
-        if (root.modeProcWorkspace === root.activeId) root.activeMode = mode
-      }
-    }
-    onExited: {
-      if (!root.modeStale) return
-      root.modeStale = false
-      // Deferred: the process still reports running while it signals exit.
-      Qt.callLater(root.showActiveMode)
-    }
   }
 
   // This widget stands in for Omarchy's workspaces widget, so it answers the
@@ -241,6 +194,8 @@ BarWidget {
     visible: root.activeId > 0
     bar: root.bar
     text: root.modeGlyph(root.activeMode)
+    foreground: layouts.color(root.activeMode, root.foreground)
+    tooltipText: strings.t("layout.tip").arg(strings.t("layout." + root.activeMode)).arg(strings.t("layout." + root.nextMode(root.activeMode)))
     horizontalMargin: 6
     verticalPadding: 6
     fixedWidth: Style.space(20)
@@ -282,7 +237,10 @@ BarWidget {
         delegate: SlotCell {
           required property int index
           occupied: root.occupied(index + 1)
+          mode: root.modeOf(index + 1)
+          markColor: layouts.color(mode, root.foreground)
           ink: root.foreground
+          surface: root.opaque(root.bar ? root.bar.background : Commons.Color.background)
           dpr: grid.dpr
           x: grid.cellX(index + 1)
           y: grid.cellY(index + 1)
@@ -294,6 +252,8 @@ BarWidget {
       // The slot the monitor shows. One element, so it slides between cells and rows.
       SlotMarker {
         visible: root.activeSlot > 0
+        mode: root.modeOf(Math.max(1, root.activeSlot))
+        surface: root.opaque(root.bar ? root.bar.background : Commons.Color.background)
         ink: root.foreground
         accent: root.accent
         dpr: grid.dpr
