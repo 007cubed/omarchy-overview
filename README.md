@@ -11,8 +11,13 @@ a bar widget in the same shape, and an optional set of touchpad gestures built a
 - **Drag a number badge** onto another workspace to swap the two. They trade numbers, so each
   keeps its layout (splits, sizes, floating windows, fullscreen) exactly; the screen stays as it
   is, and if one of them is the current workspace it goes along to its new number
-- While dragging, the start tile has a dashed outline, the target a solid one, and the line
-  under the grid says what the drop does ("Move firefox: 2 → 7", "Swap 2 ↔ 7")
+- One mark per meaning: the current workspace has an accent outline and badge; where a click
+  or Enter goes (hover and arrow keys alike) gets a ring just outside the tile; the window under
+  the pointer gets a light wash; a hovered number gets an outline and an open hand
+- While dragging, a half-size copy rides under the pointer, what was lifted dims, and the tile
+  under the pointer is the target (accent ring and wash); the line under the grid says what the
+  drop does ("Move firefox: 2 → 7 · Esc cancels", "Swap 2 ↔ 7"). Esc cancels the drag; a drop
+  outside the grid or on its own tile does nothing
 - **1–0** jump to that slot, **Esc** or a click on the background closes
 - **Arrows** or **hjkl** move a selection (it starts on the current slot and follows the
   pointer), **Enter** goes there

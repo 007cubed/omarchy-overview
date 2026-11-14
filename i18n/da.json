@@ -8,5 +8,6 @@
   "status.handle": "Træk %1 for at bytte hele arbejdsområdet · klik for at gå",
   "level.tiled": "Fliselagt",
   "level.floating": "Svævende",
-  "level.popped": "Poppet ud"
+  "level.popped": "Poppet ud",
+  "drag.cancel": "Esc annullerer"
 }

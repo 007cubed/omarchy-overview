@@ -15,10 +15,10 @@ import qs.Ui
 //   drag a window       move it to the workspace it is dropped on
 //   drag a number badge swap the whole workspace with the one it is dropped on,
 //                       layouts intact (see swapSlots)
-// A drag picks the neighbouring workspace in the direction it moves, after a
-// fifth of a tile on each axis; dropped back near its start, it cancels. While
-// dragging, the start tile has a dashed outline, the target a solid one, and the line under the
-// grid says what the drop will do.
+// A drag lands on the tile under the pointer (accent ring and wash); what was
+// lifted dims and a half-size copy rides under the pointer; the line under the
+// grid says what the drop will do. Esc, or a drop outside the grid or on its
+// own tile, cancels.
 //                       (Super + drag anywhere too, when Hyprland lets Super through)
 //   1-9, 0              go to that slot;  Esc closes
 //   arrows / hjkl       move the selection (it starts on the current slot and
@@ -70,6 +70,10 @@ Item {
   function line(v) { return Math.max(1, Math.round(v * root.dpr)) / root.dpr }
   readonly property real thinLine: line(Style.normalBorderWidth)
   readonly property real thickLine: line(Math.max(2, Style.normalBorderWidth * 2))
+  // The selection ring and the drop ring: heavier than any tile outline, and
+  // this far outside the tile, so they never merge with the current one's.
+  readonly property real ringLine: line(3)
+  readonly property real ringOffset: ringLine + line(2)
 
   // Bumped after Hyprland reports a change, so window geometry re-reads.
   property int revision: 0
@@ -365,6 +369,8 @@ Item {
     var local = stage.mapToItem(item, p.x, p.y)
     // Without Super, empty tile space only clicks; it has nothing to drag.
     root.pressKind = win ? "window" : (wholeWorkspace ? "workspace" : "slot")
+    // Before anything dims: the workspace's copy shows the tile as it was.
+    if (root.pressKind === "workspace") Qt.callLater(workspaceSnap.scheduleUpdate)
     root.pressSlot = slot
     root.pressToplevel = win ? win.modelData : null
     root.pressPoint = p
@@ -455,7 +461,7 @@ Item {
     var from = root.pressSlot
     var toplevel = root.pressToplevel
     var wasDrag = root.dragging
-    var target = wasDrag ? root.dropSlot() : -1
+    var target = wasDrag ? root.hoverSlot : -1
     root.resetPress()
 
     if (!kind) return
@@ -491,25 +497,17 @@ Item {
     return slot <= root.slots ? slot : -1
   }
 
-  // Where a drag would land, from how far it has moved: measured in tile steps
-  // per axis (tile width across, tile height down, so a diagonal costs the same
-  // both ways), and any clear movement counts. A fifth of a step picks the
-  // neighbour on that side; dropping it back near its start cancels. Past the
-  // grid's edge it stays on the last tile.
-  readonly property real dropThreshold: 0.2
-
+  // Where a drag lands: the tile under the pointer, so the ring, the status
+  // line and the drop always agree with where you point. In a gap between
+  // tiles it keeps the last tile; outside the grid there is none (a drop there
+  // cancels).
   function dropSlot() {
     if (root.pressSlot < 1) return -1
-    function steps(distance, size) {
-      var n = Math.abs(distance) / (size + root.gap)
-      return n < root.dropThreshold ? 0 : Math.sign(distance) * Math.ceil(n - root.dropThreshold)
-    }
-    var col = (root.pressSlot - 1) % root.columns + steps(root.dragPoint.x - root.pressPoint.x, stage.tileW)
-    var row = Math.floor((root.pressSlot - 1) / root.columns) + steps(root.dragPoint.y - root.pressPoint.y, stage.tileH)
-    col = Math.max(0, Math.min(root.columns - 1, col))
-    row = Math.max(0, Math.min(root.rows - 1, row))
-    var slot = row * root.columns + col + 1
-    return slot <= root.slots ? slot : -1
+    var slot = root.slotAt(root.dragPoint)
+    if (slot > 0) return slot
+    var x = root.dragPoint.x - stage.gridX
+    var y = root.dragPoint.y - stage.gridY
+    return x >= 0 && y >= 0 && x <= stage.gridW && y <= stage.gridH ? root.hoverSlot : -1
   }
 
   // What a drag will do, for the line under the grid: "Move firefox: 2 → 7" or
@@ -517,10 +515,11 @@ Item {
   function dragText() {
     var from = String(root.pressSlot % 10)
     var to = root.hoverSlot > 0 && root.hoverSlot !== root.pressSlot ? String(root.hoverSlot % 10) : "…"
-    if (root.pressKind === "workspace") return strings.t("drag.swap").arg(from).arg(to)
+    var cancel = " · " + strings.t("drag.cancel")
+    if (root.pressKind === "workspace") return strings.t("drag.swap").arg(from).arg(to) + cancel
     var ipc = root.pressToplevel ? root.pressToplevel.lastIpcObject : null
     var name = String((ipc && ipc["class"]) || (root.pressToplevel && root.pressToplevel.title) || "")
-    return strings.t("drag.move").arg(name).arg(from).arg(to)
+    return strings.t("drag.move").arg(name).arg(from).arg(to) + cancel
   }
 
   // ---- UI -----------------------------------------------------------------------
@@ -536,7 +535,7 @@ Item {
     // Dim the desktop well enough that the tiles and hint read clearly.
     Rectangle {
       anchors.fill: parent
-      color: Qt.rgba(root.background.r, root.background.g, root.background.b, 0.88)
+      color: Qt.rgba(root.background.r, root.background.g, root.background.b, 0.94)
     }
 
     MouseArea {
@@ -557,7 +556,9 @@ Item {
           root.superHeld = true
           event.accepted = true
         } else if (event.key === Qt.Key_Escape) {
-          root.dismiss()
+          // During a drag Esc drops nothing and keeps the overview open.
+          if (root.pressKind && root.pressKind !== "backdrop") root.resetPress()
+          else root.dismiss()
           event.accepted = true
         } else if ((event.modifiers & Qt.ShiftModifier) && root.shiftedSlot(event) > 0) {
           var target = root.moveTarget()
@@ -628,18 +629,13 @@ Item {
           required property int index
           readonly property int slot: index + 1
           readonly property bool active: root.activeSlot() === slot
-          readonly property bool target: root.dragging && root.hoverSlot === slot && root.pressSlot !== slot
-          // Where a drag started: a darker hole, outlined by dragOrigin above it.
-          readonly property bool origin: root.dragging && root.pressSlot === slot
-          // Where Enter goes: shown while the pointer is on a tile or the keys moved it.
-          readonly property bool selected: !root.dragging && root.selectedSlot === slot && (root.keyed || root.pointSlot > 0)
 
           x: root.tileX(slot)
           y: root.tileY(slot)
           width: stage.tileW
           height: stage.tileH
           radius: root.radius
-          color: target || selected ? root.selectedBackground : (origin ? Qt.darker(root.background, 1.4) : root.background)
+          color: root.background
         }
       }
 
@@ -659,6 +655,8 @@ Item {
           readonly property bool lifted: root.dragging && root.pressToplevel === modelData && root.pressKind === "window"
           readonly property bool tileLifted: root.dragging && root.pressKind === "workspace" && root.pressSlot === slot
           property alias preview: win
+          // The window a click focuses and a drag takes.
+          readonly property bool pointed: !root.keyed && !root.dragging && !root.pointBadge && root.pointToplevel === modelData
 
           visible: shown
           z: ipc.floating ? 2 : 1
@@ -682,6 +680,16 @@ Item {
             border.color: Commons.Color.menu.border
             clip: true
             opacity: frame.lifted ? 0.3 : 1
+
+            // A light wash over the window, no extra line: the tile already
+            // has its outline and the selection ring. Nothing moves or resizes.
+            Rectangle {
+              visible: frame.pointed
+              z: 2
+              anchors.fill: parent
+              radius: parent.radius
+              color: Util.alpha(root.foreground, 0.16)
+            }
 
             ScreencopyView {
               anchors.fill: parent
@@ -707,63 +715,31 @@ Item {
         }
       }
 
-      // A drag's start and target, outlined above the previews so windows don't
-      // hide them: a dashed outline where it came from, a solid one where it goes.
-      Shape {
-        id: dragOrigin
-        readonly property real inset: lineWidth / 2
-        readonly property real lineWidth: root.thickLine
-        visible: root.dragging && root.pressSlot > 0
-        z: 4
-        x: root.pressSlot > 0 ? root.tileX(root.pressSlot) : 0
-        y: root.pressSlot > 0 ? root.tileY(root.pressSlot) : 0
-        width: stage.tileW
-        height: stage.tileH
-        preferredRendererType: Shape.CurveRenderer
-
-        ShapePath {
-          strokeColor: root.accent
-          strokeWidth: dragOrigin.lineWidth
-          strokeStyle: ShapePath.DashLine
-          dashPattern: [4, 3]
-          fillColor: "transparent"
-          PathRectangle {
-            x: dragOrigin.inset
-            y: dragOrigin.inset
-            width: dragOrigin.width - dragOrigin.lineWidth
-            height: dragOrigin.height - dragOrigin.lineWidth
-            radius: root.radius
-          }
-        }
-      }
-
+      // A drag's target: the selection ring in accent (the plain ring hides
+      // while dragging) and a light accent wash over the tile. The origin shows
+      // by its content stepping back (the lifted window or workspace dims).
+      readonly property int dropTarget: root.dragging && root.hoverSlot > 0 && root.hoverSlot !== root.pressSlot ? root.hoverSlot : -1
       Rectangle {
-        visible: root.dragging && root.hoverSlot > 0 && root.hoverSlot !== root.pressSlot
-        z: 4
-        x: visible ? root.tileX(root.hoverSlot) : 0
-        y: visible ? root.tileY(root.hoverSlot) : 0
-        width: stage.tileW
-        height: stage.tileH
-        radius: root.radius
-        color: "transparent"
-        border.width: dragOrigin.lineWidth
-        border.color: root.accent
-      }
-
-      // A badge under the pointer tints its whole tile (the selection ring is
-      // already round it): grabbing the badge carries the workspace, not one
-      // window. Drawn over the previews, so nothing under it moves or resizes.
-      Rectangle {
-        id: handleTint
-        readonly property int slot: !root.keyed && !root.dragging && root.pointBadge ? root.pointSlot : -1
-        visible: slot > 0
+        visible: stage.dropTarget > 0
         z: 2.5
-        x: visible ? root.tileX(slot) : 0
-        y: visible ? root.tileY(slot) : 0
+        x: visible ? root.tileX(stage.dropTarget) : 0
+        y: visible ? root.tileY(stage.dropTarget) : 0
         width: stage.tileW
         height: stage.tileH
         radius: root.radius
-        color: Util.alpha(root.accent, 0.12)
+        color: Util.alpha(root.accent, 0.2)
+      }
+      Rectangle {
+        visible: stage.dropTarget > 0
+        z: 4
+        x: visible ? root.tileX(stage.dropTarget) - root.ringOffset : 0
+        y: visible ? root.tileY(stage.dropTarget) - root.ringOffset : 0
+        width: stage.tileW + root.ringOffset * 2
+        height: stage.tileH + root.ringOffset * 2
+        radius: root.radius > 0 ? root.radius + root.ringOffset : 0
+        color: "transparent"
+        border.width: root.ringLine
+        border.color: root.accent
       }
 
       // Slot numbers, in each tile's bottom-left corner: the handle for dragging a workspace.
@@ -788,8 +764,8 @@ Item {
           height: label.implicitHeight + Style.spacing.sm * 2
           radius: root.radius
           color: active ? root.accent : Util.alpha(root.background, lit ? 0.95 : 0.75)
-          border.width: lit ? Math.max(1, Style.normalBorderWidth) : 0
-          border.color: active ? root.foreground : root.accent
+          border.width: lit ? root.thickLine : 0
+          border.color: root.foreground
 
           Text {
             id: label
@@ -812,8 +788,9 @@ Item {
         delegate: Rectangle {
           required property int index
           readonly property int slot: index + 1
-          readonly property bool strong: root.activeSlot() === slot
-                                         || root.dragging && root.hoverSlot === slot && root.pressSlot !== slot
+          // The current workspace; during a drag it steps back to a plain
+          // outline (its badge keeps the accent), so only origin and target speak.
+          readonly property bool strong: !root.dragging && root.activeSlot() === slot
           z: 3.5
           x: root.tileX(slot)
           y: root.tileY(slot)
@@ -832,7 +809,7 @@ Item {
       Rectangle {
         readonly property int slot: !root.dragging && (root.keyed || root.pointSlot > 0) ? root.selectedSlot : -1
         // Ring width plus an even gap to the tile's edge.
-        readonly property real offset: root.thickLine + root.line(2)
+        readonly property real offset: root.ringOffset
         visible: slot > 0
         z: 4
         x: visible ? root.tileX(slot) - offset : 0
@@ -841,7 +818,7 @@ Item {
         height: stage.tileH + offset * 2
         radius: root.radius > 0 ? root.radius + offset : 0
         color: "transparent"
-        border.width: root.thickLine
+        border.width: root.ringLine
         border.color: root.foreground
       }
 
@@ -896,34 +873,37 @@ Item {
         id: ghost
         visible: root.dragging
         z: 100
-        x: root.dragPoint.x - root.pressOffset.x
-        y: root.dragPoint.y - root.pressOffset.y
-        width: root.dragSize.width
-        height: root.dragSize.height
+        // Half size, held at the same point it was grabbed by, so it stays under
+        // the hand without covering the tile it is aimed at.
+        x: root.dragPoint.x - root.pressOffset.x * 0.5
+        y: root.dragPoint.y - root.pressOffset.y * 0.5
+        width: root.dragSize.width * 0.5
+        height: root.dragSize.height * 0.5
         radius: root.radius
-        color: root.pressKind === "workspace" ? Util.alpha(root.background, 0.5) : root.background
-        border.width: Math.max(2, Style.normalBorderWidth * 2)
-        border.color: root.accent
+        color: root.background
+        border.width: root.thickLine
+        border.color: root.foreground
         clip: true
-        opacity: 0.9
+        opacity: 0.92
 
         ScreencopyView {
           anchors.fill: parent
-          anchors.margins: 2
+          anchors.margins: root.thickLine
           visible: root.pressKind === "window"
           captureSource: root.dragging && root.pressToplevel ? root.pressToplevel.wayland : null
           live: root.dragging
         }
 
-        Text {
-          textFormat: Text.PlainText
+        // A workspace's copy: the tile as it looked when it was grabbed.
+        ShaderEffectSource {
+          id: workspaceSnap
+          anchors.fill: parent
+          anchors.margins: root.thickLine
           visible: root.pressKind === "workspace"
-          anchors.centerIn: parent
-          text: String(root.pressSlot % 10)
-          color: root.foreground
-          font.family: root.fontFamily
-          font.pixelSize: Style.font.display
-          font.bold: true
+          sourceItem: stage
+          sourceRect: root.pressSlot > 0 ? Qt.rect(root.tileX(root.pressSlot), root.tileY(root.pressSlot), stage.tileW, stage.tileH) : Qt.rect(0, 0, 1, 1)
+          live: false
+          recursive: true
         }
       }
     }
