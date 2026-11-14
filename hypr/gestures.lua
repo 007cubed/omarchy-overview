@@ -4,7 +4,7 @@
 --   dofile(os.getenv("HOME") .. "/.config/omarchy/plugins/guykawaii.overview/hypr/gestures.lua")
 --
 -- 3 fingers: move between places. 4 fingers: the overview and carrying windows.
---   3 left/right       switch workspace
+--   3 left/right       switch workspace, empty ones too (see "Persistent slots")
 --   3 up               fullscreen
 --   3 down             toggle row: the slot above or below (3 <-> 8)
 --   4 up               open / close the overview
@@ -151,6 +151,24 @@ o.bind("SUPER + mouse:274", "Reset window split", function()
   hl.dispatch(hl.dsp.layout("splitratio -1.9"))
   hl.dispatch(hl.dsp.layout("splitratio 0.9"))
 end)
+
+-- Persistent slots ------------------------------------------------------------------
+-- The 3-finger swipe steps through the workspaces that exist on the monitor, so
+-- empty slots would be skipped. Every monitor's ten slots are kept as persistent
+-- workspaces instead: the swipe then visits all ten, still following the fingers,
+-- and stops at 1 and 10 (workspace_swipe_create_new is off, so it never makes an
+-- eleventh). Hyprland merges these rules with Omarchy's per-workspace ones. Rules
+-- are redone when a monitor arrives, since its block may only be known then.
+local function persist_slots()
+  for _, monitor in ipairs(hl.get_monitors()) do
+    for slot = 1, 10 do
+      hl.workspace_rule({ workspace = tostring(o.workspaces.workspace_id(monitor, slot)), monitor = monitor.name, persistent = true })
+    end
+  end
+end
+persist_slots()
+hl.on("hyprland.start", persist_slots)
+hl.on("monitor.added", persist_slots)
 
 -- Swiping past the last workspace does nothing instead of making an empty one.
 hl.config({ gestures = { workspace_swipe_create_new = false } })

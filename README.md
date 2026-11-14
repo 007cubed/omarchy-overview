@@ -74,7 +74,7 @@ dofile(os.getenv("HOME") .. "/.config/omarchy/plugins/guykawaii.overview/hypr/ge
 
 | Gesture | Action |
 |---|---|
-| 3 fingers ← → | switch workspace |
+| 3 fingers ← → | switch workspace, empty ones too, stopping at 1 and 10 |
 | 3 fingers ↑ | fullscreen |
 | 3 fingers ↓ | toggle row: go to the slot above or below (3 ↔ 8), sliding vertically |
 | 4 fingers ↑ | open the overview |
@@ -97,6 +97,12 @@ copy the lines you want instead of loading the file.
   along the slots, down to the other row. With two rows one toggle is enough. Like Super + number,
   toggling into an empty slot makes that workspace. A 3-finger swipe from 5 to 6 still crosses
   rows. Hyprland picks the slide's direction by workspace number, so going 3 → 8 slides up.
+- **Persistent slots.** Hyprland's swipe only steps through workspaces that exist, so empty slots
+  would be skipped. The file keeps every monitor's ten slots as persistent workspaces (redone when
+  a monitor arrives), so the swipe visits all ten and still follows your fingers; with
+  `workspace_swipe_create_new` off it never makes an eleventh. The costs: Omarchy's own workspace
+  widget shows all ten numbers, Super + Tab steps through empty slots too, and
+  the windows of an unplugged monitor still wait as guests on another one, as before.
 - **Scratchpad.** 4 fingers down closes the overview when its layer is open, and otherwise pulls
   the scratchpad down like a drop-down terminal. For 0.3 s after the overview closes it is ignored,
   so a double swipe doesn't open the scratchpad by accident.
