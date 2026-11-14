@@ -7,7 +7,9 @@ import qs.Commons
 Item {
   property color ink: "white"
   property color accent: "steelblue"
-  readonly property int ring: Math.max(1, Style.normalBorderWidth)
+  // The screen's scale: the ring is a whole number of screen pixels.
+  property real dpr: 1
+  readonly property real ring: Math.max(1, Math.round(Style.normalBorderWidth * dpr)) / dpr
 
   Rectangle {
     anchors.fill: parent

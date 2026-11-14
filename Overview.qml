@@ -1191,6 +1191,7 @@ Item {
             readonly property var workspace: { root.hintMapped; return root.workspaceById(root.hintBlock * root.slots + index + 1) }
             occupied: !!workspace && workspace.toplevels.values.length > 0
             ink: Commons.Color.popups.text
+            dpr: root.dpr
             // On a carry every cell steps back (the origin too: the arrow starts
             // on it), so the accent arrow keeps at least 3:1 against whatever is
             // under it, solid or empty (WCAG 1.4.11 for graphics).
@@ -1291,6 +1292,7 @@ Item {
           height: hintCard.cellH
           ink: Commons.Color.popups.text
           accent: Commons.Color.accent
+          dpr: root.dpr
 
           // Style.duration: with reduced motion all three jump to the end.
           ParallelAnimation {

@@ -150,13 +150,22 @@ BarWidget {
 
     Item {
       id: grid
-      readonly property int gap: Math.max(1, Style.space(2))
-      readonly property int cellH: Math.max(4, Math.floor((root.barSize - Style.space(8) - gap) / 2))
-      readonly property int cellW: Math.round(cellH * 1.6)
-      readonly property int pad: Style.space(4)
+      // Sized in whole screen pixels (at 1.6 a point is 1.6 pixels), so every
+      // cell, gap and outline comes out the same width; worked out in pixels,
+      // then turned back into points.
+      readonly property real dpr: root.monitor && root.monitor.scale > 0 ? root.monitor.scale : 1
+      readonly property int gapPx: Math.max(1, Math.round(Style.space(2) * dpr))
+      readonly property int cellHPx: Math.max(4, Math.floor((root.barSize * dpr - Style.space(8) * dpr - gapPx) / 2))
+      readonly property int cellWPx: Math.round(cellHPx * 1.6)
+      readonly property int padPx: Math.round(Style.space(4) * dpr)
+      readonly property int topPx: Math.floor((root.barSize * dpr - 2 * cellHPx - gapPx) / 2)
+      readonly property real gap: gapPx / dpr
+      readonly property real cellH: cellHPx / dpr
+      readonly property real cellW: cellWPx / dpr
+      readonly property real pad: padPx / dpr
 
-      function cellX(slot) { return pad + ((slot - 1) % root.columns) * (cellW + gap) }
-      function cellY(slot) { return (root.barSize - 2 * cellH - gap) / 2 + Math.floor((slot - 1) / root.columns) * (cellH + gap) }
+      function cellX(slot) { return (padPx + ((slot - 1) % root.columns) * (cellWPx + gapPx)) / dpr }
+      function cellY(slot) { return (topPx + Math.floor((slot - 1) / root.columns) * (cellHPx + gapPx)) / dpr }
 
       implicitWidth: pad * 2 + root.columns * cellW + (root.columns - 1) * gap
       implicitHeight: root.barSize
@@ -168,6 +177,7 @@ BarWidget {
           required property int index
           occupied: root.occupied(index + 1)
           ink: root.foreground
+          dpr: grid.dpr
           x: grid.cellX(index + 1)
           y: grid.cellY(index + 1)
           width: grid.cellW
@@ -180,6 +190,7 @@ BarWidget {
         visible: root.activeSlot > 0
         ink: root.foreground
         accent: root.accent
+        dpr: grid.dpr
         x: grid.cellX(Math.max(1, root.activeSlot))
         y: grid.cellY(Math.max(1, root.activeSlot))
         width: grid.cellW
