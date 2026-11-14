@@ -27,8 +27,7 @@ Rectangle {
 
   LayoutMark {
     mode: cell.mode
-    ink: cell.markColor
-    halo: cell.occupied ? cell.surface : "transparent"
+    ink: cell.occupied ? cell.surface : cell.markColor
     dpr: cell.dpr
     cellWPx: Math.round(cell.width * cell.dpr)
     cellHPx: Math.round(cell.height * cell.dpr)

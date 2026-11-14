@@ -70,7 +70,7 @@ theme's own or your `~/.config/omarchy/shell.toml` (which survives theme switche
 
 ```toml
 [overview]
-carry-arrow = "green"   # a colors.toml name (green, yellow, magenta, …), a role
+carry-arrow = "yellow"  # a colors.toml name (yellow, cyan, orange, …), a role
                         # (accent, text, urgent, muted) or "#rrggbb"
 ```
 
@@ -85,7 +85,9 @@ so a row change reads as a move up or down. After the slots it shows the shown w
 the way `omarchy.workspaces` does (a square tiles, a circle scrolls, a triangle floats); click it
 to cycle, as Super + L. Every slot shows its workspace's layout the same way, in the bar's cells,
 the switch hint's cells and the overview's number badges: a disc for scrolling (the theme's green)
-and a triangle for floating (its magenta). Tiling, the usual case, has no mark. Put it in place of `omarchy.workspaces` in
+and a triangle for floating (its magenta), cut out of a cell that has windows. Tiling, the usual
+case, has no mark. The shapes carry the meaning; a theme whose green or magenta is grey, faint, or
+too like its accent, its red or each other shows them in the plain text colour instead. Put it in place of `omarchy.workspaces` in
 `~/.config/omarchy/shell.json`:
 
 ```json

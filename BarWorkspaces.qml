@@ -147,7 +147,12 @@ BarWidget {
     return "󱓻"
   }
 
-  function opaque(c) { return Qt.rgba(c.r, c.g, c.b, 1) }
+  // The bar's colour without its alpha: what a cut-out mark is drawn in (on a
+  // translucent bar it comes out a little darker than the bar around it).
+  readonly property color barSurface: {
+    var c = root.bar ? root.bar.background : Commons.Color.background
+    return Qt.rgba(c.r, c.g, c.b, 1)
+  }
 
   function modeOf(slot) { return layouts.mode(root.block * root.slots + slot) }
 
@@ -194,7 +199,7 @@ BarWidget {
     visible: root.activeId > 0
     bar: root.bar
     text: root.modeGlyph(root.activeMode)
-    foreground: layouts.color(root.activeMode, root.foreground)
+    foreground: layouts.color(root.activeMode, root.foreground, root.barSurface)
     tooltipText: strings.t("layout.tip").arg(strings.t("layout." + root.activeMode)).arg(strings.t("layout." + root.nextMode(root.activeMode)))
     horizontalMargin: 6
     verticalPadding: 6
@@ -238,9 +243,9 @@ BarWidget {
           required property int index
           occupied: root.occupied(index + 1)
           mode: root.modeOf(index + 1)
-          markColor: layouts.color(mode, root.foreground)
+          markColor: layouts.color(mode, root.foreground, root.barSurface)
           ink: root.foreground
-          surface: root.opaque(root.bar ? root.bar.background : Commons.Color.background)
+          surface: root.barSurface
           dpr: grid.dpr
           x: grid.cellX(index + 1)
           y: grid.cellY(index + 1)
@@ -253,7 +258,7 @@ BarWidget {
       SlotMarker {
         visible: root.activeSlot > 0
         mode: root.modeOf(Math.max(1, root.activeSlot))
-        surface: root.opaque(root.bar ? root.bar.background : Commons.Color.background)
+        surface: root.barSurface
         ink: root.foreground
         accent: root.accent
         dpr: grid.dpr

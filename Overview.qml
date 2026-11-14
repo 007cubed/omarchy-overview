@@ -177,6 +177,9 @@ Item {
   LayoutModes { id: layouts }
 
   // Omarchy's own glyphs for the layouts; tiling has none here (it is never marked).
+  // The hint card's colour without its alpha, for cut-out marks and contrast.
+  readonly property color popupSurface: Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g, Commons.Color.popups.background.b, 1)
+
   function layoutGlyph(mode) {
     if (mode === "scrolling") return "󰝥"
     if (mode === "floating") return "󰔶"
@@ -807,7 +810,7 @@ Item {
               anchors.verticalCenter: parent.verticalCenter
               textFormat: Text.PlainText
               text: badge.glyph
-              color: badge.active ? badge.ink : layouts.color(badge.mode, badge.ink)
+              color: badge.active ? badge.ink : layouts.color(badge.mode, badge.ink, root.background)
               font.family: root.fontFamily
               font.pixelSize: Style.font.heading
             }
@@ -952,7 +955,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             textFormat: Text.PlainText
             text: parent.glyph
-            color: layouts.color(parent.mode, root.foreground)
+            color: layouts.color(parent.mode, root.foreground, root.background)
             font.family: root.fontFamily
             font.pixelSize: Style.font.heading
           }
@@ -1057,14 +1060,14 @@ Item {
   // Set in Omarchy's shell.toml, the theme's or ~/.config/omarchy/shell.toml (which
   // survives theme switches):
   //   [overview]
-  //   carry-arrow = "green"   # a colors.toml name, a role (accent, text, urgent,
+  //   carry-arrow = "yellow"  # a colors.toml name, a role (accent, text, urgent,
   //                           # muted) or "#rrggbb"; unset = the theme's foreground
   // The default is the foreground: of every theme colour it is the only one that
   // keeps WCAG 3:1 against the card and the stepped-back cells in all stock themes
   // (worst: everforest, 3.75:1). Accent, green and the rest fail in 4 or more.
   // Omarchy's Color only keeps the core roles, so names like "green" are looked
-  // up in the theme's colors.toml, read again whenever the theme changes.
-  property var themePalette: ({})
+  // up in the theme's colors.toml (LayoutModes' copy, read again whenever the
+  // theme changes). Green and magenta mark scrolling and floating slots.
   readonly property color carryArrowColor: {
     var fallback = Commons.Color.foreground
     var value = String(Commons.Color.pick("overview.carry-arrow", "")).trim()
@@ -1072,31 +1075,10 @@ Item {
     var name = value.toLowerCase()
     var core = ["accent", "foreground", "text", "urgent", "muted", "background"]
     if (value.charAt(0) !== "#" && core.indexOf(name) < 0)
-      return root.themePalette[name] || fallback
+      return layouts.palette[name] || fallback
     return Commons.Color.flatColor(value, fallback)
   }
 
-  FileView {
-    id: themeColorsFile
-    path: Quickshell.env("HOME") + "/.local/state/omarchy/current/theme/colors.toml"
-    watchChanges: false
-    printErrors: false
-    onLoaded: {
-      var palette = {}
-      var lines = String(text()).split("\n")
-      for (var i = 0; i < lines.length; i++) {
-        var match = lines[i].match(/^\s*([A-Za-z0-9_-]+)\s*=\s*["']?(#[0-9A-Fa-f]{6})/)
-        if (match) palette[match[1].toLowerCase()] = match[2]
-      }
-      root.themePalette = palette
-    }
-  }
-
-  // A theme switch changes the accent; read the new theme's palette then.
-  Connections {
-    target: Commons.Color
-    function onAccentChanged() { themeColorsFile.reload() }
-  }
 
   function workspaceById(id) {
     var values = Hyprland.workspaces.values
@@ -1312,9 +1294,9 @@ Item {
             readonly property var workspace: { root.hintMapped; return root.workspaceById(root.hintBlock * root.slots + index + 1) }
             occupied: !!workspace && workspace.toplevels.values.length > 0
             mode: layouts.mode(root.hintBlock * root.slots + index + 1)
-            markColor: layouts.color(mode, Commons.Color.popups.text)
+            markColor: layouts.color(mode, Commons.Color.popups.text, root.popupSurface)
             ink: Commons.Color.popups.text
-            surface: Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g, Commons.Color.popups.background.b, 1)
+            surface: root.popupSurface
             dpr: root.dpr
             // On a carry every cell steps back (the origin too: the arrow starts
             // on it), so the accent arrow keeps at least 3:1 against whatever is
@@ -1416,7 +1398,7 @@ Item {
           height: hintCard.cellH
           mode: layouts.mode(root.hintBlock * root.slots + Math.max(1, root.hintTo))
           ink: Commons.Color.popups.text
-          surface: Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g, Commons.Color.popups.background.b, 1)
+          surface: root.popupSurface
           accent: Commons.Color.accent
           dpr: root.dpr
 
