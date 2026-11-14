@@ -14,10 +14,11 @@ a bar widget in the same shape, and an optional set of touchpad gestures built a
 - One mark per meaning: the current workspace has an accent outline and badge; where a click
   or Enter goes (hover and arrow keys alike) gets a ring just outside the tile; the window under
   the pointer gets a light wash; a hovered number gets an outline and an open hand
-- While dragging, a half-size copy rides under the pointer, what was lifted dims, and the tile
-  under the pointer is the target (accent ring and wash); the line under the grid says what the
-  drop does ("Move firefox: 2 → 7 · Esc cancels", "Swap 2 ↔ 7"). Esc cancels the drag; a drop
-  outside the grid or on its own tile does nothing
+- While dragging, the copy follows the pointer, what was lifted dims, and the target is the tile
+  nearest the copy, counted in whole tiles per axis; a fifth of a tile already reaches the next
+  one, so swaps stay short on a touchpad (accent ring and wash); the line under the grid says what
+  the drop does ("Move firefox: 2 → 7 · Esc cancels", "Swap 2 ↔ 7"). Esc cancels the drag; a
+  drop on its own tile does nothing
 - **1–0** jump to that slot, **Esc** or a click on the background closes
 - **Arrows** or **hjkl** move a selection (it starts on the current slot and follows the
   pointer), **Enter** goes there

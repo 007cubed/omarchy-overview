@@ -495,17 +495,23 @@ Item {
     return slot <= root.slots ? slot : -1
   }
 
-  // Where a drag lands: the tile under the pointer, so the ring, the status
-  // line and the drop always agree with where you point. In a gap between
-  // tiles it keeps the last tile; outside the grid there is none (a drop there
-  // cancels).
+  // Where a drag lands: the tile nearest the dragged copy, counted per axis in
+  // whole tiles (width across, height down, so wide and tall tiles weigh the
+  // same). A fifth of a tile already reaches the neighbour, which keeps long
+  // swaps short on a touchpad. The ring and status line show the result.
+  readonly property real dropThreshold: 0.2
   function dropSlot() {
     if (root.pressSlot < 1) return -1
-    var slot = root.slotAt(root.dragPoint)
-    if (slot > 0) return slot
-    var x = root.dragPoint.x - stage.gridX
-    var y = root.dragPoint.y - stage.gridY
-    return x >= 0 && y >= 0 && x <= stage.gridW && y <= stage.gridH ? root.hoverSlot : -1
+    function steps(distance, size) {
+      var n = Math.abs(distance) / (size + root.gap)
+      return n < root.dropThreshold ? 0 : Math.sign(distance) * Math.ceil(n - root.dropThreshold)
+    }
+    var col = (root.pressSlot - 1) % root.columns + steps(root.dragPoint.x - root.pressPoint.x, stage.tileW)
+    var row = Math.floor((root.pressSlot - 1) / root.columns) + steps(root.dragPoint.y - root.pressPoint.y, stage.tileH)
+    col = Math.max(0, Math.min(root.columns - 1, col))
+    row = Math.max(0, Math.min(root.rows - 1, row))
+    var slot = row * root.columns + col + 1
+    return slot <= root.slots ? slot : -1
   }
 
   // What a drag will do, for the line under the grid: "Move firefox: 2 → 7" or
@@ -871,12 +877,12 @@ Item {
         id: ghost
         visible: root.dragging
         z: 100
-        // Half size, held at the same point it was grabbed by, so it stays under
-        // the hand without covering the tile it is aimed at.
-        x: root.dragPoint.x - root.pressOffset.x * 0.5
-        y: root.dragPoint.y - root.pressOffset.y * 0.5
-        width: root.dragSize.width * 0.5
-        height: root.dragSize.height * 0.5
+        // Full size, held where it was grabbed: its centre is what dropSlot()
+        // measures, so it sits over the tile it will land on.
+        x: root.dragPoint.x - root.pressOffset.x
+        y: root.dragPoint.y - root.pressOffset.y
+        width: root.dragSize.width
+        height: root.dragSize.height
         radius: root.radius
         color: root.background
         border.width: root.thickLine
