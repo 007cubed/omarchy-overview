@@ -33,8 +33,8 @@ import qs.Ui
 // at the bottom of the screen, "3 → 4" over the grid, with the highlight sliding
 // from the old slot to the new one, so moving between rows reads as moving up or
 // down. Carrying a window there also draws an arrow across the grid from the
-// slot it left to the new one (a wrap within the row: two short arrows, out of
-// one edge and in from the other), and names the app under the grid. About 0.6 s.
+// slot it left to the new one (a wrap such as 5 → 1 too, back across the row),
+// and names the app under the grid. About 0.6 s.
 Item {
   id: root
 
@@ -1141,7 +1141,6 @@ Item {
         highlight.x = cellX(slot)
         highlight.y = cellY(slot)
         hintArrow.grow = 0
-        hintArrowIn.grow = 0
       }
 
       // Slides the highlight on from wherever it is, and draws a carry's arrow
@@ -1207,14 +1206,8 @@ Item {
         // the slot it went to, stopping a little before that cell (the marker's
         // extra pixel and some air), so it never runs under the marker. One
         // colour (the theme's foreground unless set), over cells that step back.
-        // Rotated, so any direction works.
-        //
-        // A wrap (5 → 1, 10 → 6, and back: same row, four cells apart) would draw
-        // a long line backwards across the row, against the swipe. It is two short
-        // arrows instead: one leaving the origin towards the grid edge, one entering
-        // the target from the opposite edge, both pointing the way the swipe went
-        // (a carry to the next slot, 5 → 1, points right). A Super + Shift + number
-        // carry across the row looks the same; it can't be told apart from a wrap.
+        // Rotated, so any direction works; a wrap (5 → 1) is drawn the same way,
+        // back across the row.
         component HintArrow: Item {
           id: arrow
 
@@ -1271,15 +1264,12 @@ Item {
           }
         }
 
-        // The route: a straight arrow, or for a wrap two stubs (see above). The
-        // wrap's direction: +1 to the right, from the higher slot to the lower.
+        // The route: straight from the origin's centre to the target's edge.
         readonly property int arrowFrom: Math.max(1, root.hintFrom)
         readonly property int arrowTo: Math.max(1, root.hintTo)
         readonly property real dx: hintCard.cellX(arrowTo) - hintCard.cellX(arrowFrom)
         readonly property real dy: hintCard.cellY(arrowTo) - hintCard.cellY(arrowFrom)
         readonly property real distance: Math.sqrt(dx * dx + dy * dy)
-        readonly property bool wrap: dy === 0 && Math.abs(arrowTo - arrowFrom) === root.columns - 1
-        readonly property int wrapDir: arrowFrom > arrowTo ? 1 : -1
         // From the target's centre to its edge along the line, plus the 3 px.
         readonly property real toEdge: Math.min(
           dx !== 0 ? (hintCard.cellW / 2 + Style.space(3)) * distance / Math.abs(dx) : Infinity,
@@ -1290,23 +1280,8 @@ Item {
           active: root.hintCarry && root.hintFrom !== root.hintTo
           sx: hintCard.cellX(hintGrid.arrowFrom) + hintCard.cellW / 2
           sy: hintCard.cellY(hintGrid.arrowFrom) + hintCard.cellH / 2
-          angle: hintGrid.wrap ? (hintGrid.wrapDir > 0 ? 0 : 180) : Math.atan2(hintGrid.dy, hintGrid.dx) * 180 / Math.PI
-          // A wrap's first stub runs from the origin's centre to just past the
-          // grid's edge, into the card's padding.
-          fullLength: hintGrid.wrap ? hintCard.cellW / 2 + hintCard.pad - Style.space(2) : hintGrid.distance - hintGrid.toEdge
-        }
-
-        // A wrap's second stub: in from the card's padding on the far side, up to
-        // the target cell (2 px of air).
-        HintArrow {
-          id: hintArrowIn
-          active: root.hintCarry && root.hintFrom !== root.hintTo && hintGrid.wrap
-          sx: hintGrid.wrapDir > 0
-            ? hintCard.cellX(hintGrid.arrowTo) - hintCard.pad
-            : hintCard.cellX(hintGrid.arrowTo) + hintCard.cellW + hintCard.pad
-          sy: hintCard.cellY(hintGrid.arrowTo) + hintCard.cellH / 2
-          angle: hintGrid.wrapDir > 0 ? 0 : 180
-          fullLength: hintCard.pad - Style.space(2)
+          angle: Math.atan2(hintGrid.dy, hintGrid.dx) * 180 / Math.PI
+          fullLength: hintGrid.distance - hintGrid.toEdge
         }
 
         // The current slot, marked as on the bar.
@@ -1323,7 +1298,6 @@ Item {
             NumberAnimation { id: slideX; target: highlight; property: "x"; duration: Style.duration(120); easing.type: Easing.Bezier; easing.bezierCurve: Style.easeOut }
             NumberAnimation { id: slideY; target: highlight; property: "y"; duration: Style.duration(120); easing.type: Easing.Bezier; easing.bezierCurve: Style.easeOut }
             NumberAnimation { target: hintArrow; property: "grow"; from: 0; to: 1; duration: Style.duration(120); easing.type: Easing.Bezier; easing.bezierCurve: Style.easeOut }
-            NumberAnimation { target: hintArrowIn; property: "grow"; from: 0; to: 1; duration: Style.duration(120); easing.type: Easing.Bezier; easing.bezierCurve: Style.easeOut }
           }
         }
       }

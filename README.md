@@ -27,7 +27,7 @@ a bar widget in the same shape, and an optional set of touchpad gestures built a
 - **Switch hint:** outside the overview, every workspace switch flashes a small 5×2 card at the
   bottom of the screen for about 0.6 s: "3 → 4" over the grid, its highlight sliding from the old
   slot to the new one. Carrying a window (4 fingers sideways, Super + Shift + number) adds an
-  arrow across the grid from the slot it left to the new one (a wrap within the row: two short arrows, out of one edge and in from the other), drawn with the slide, and the app's
+  arrow across the grid from the slot it left to the new one (a wrap such as 5 → 1 too, back across the row), drawn with the slide, and the app's
   icon and name under the grid; the slot it left shows what is still there. The carry hint stays
   a little longer (about 0.75 s). It stays away while the overview is open and on a workspace
   with a fullscreen window.
@@ -131,9 +131,8 @@ copy the lines you want instead of loading the file.
   plain one-shot gestures, not Hyprland's tracked workspace swipe (which can't loop), so the move
   fires as soon as the swipe is recognised and doesn't follow the fingers.
 - **Wraps.** Hyprland picks the slide's direction by workspace number, so a wrap such as 5 → 1
-  slides in number order, the opposite way to the swipe. It uses the same slide anyway. The
-  switch hint draws a carried wrap as two short arrows, one out of the edge the window left and
-  one in from the other, pointing the way the swipe went.
+  slides in number order, the opposite way to the swipe. It uses the same slide anyway, and the
+  switch hint draws a carried wrap like any other carry: one arrow back across the row.
 - **Scratchpad.** 4 fingers down closes the overview when its layer is open, and otherwise pulls
   the scratchpad down like a drop-down terminal. For 0.3 s after the overview closes it is ignored,
   so a double swipe doesn't open the scratchpad by accident.
