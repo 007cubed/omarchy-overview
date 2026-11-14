@@ -108,7 +108,8 @@ end
 -- Gestures ------------------------------------------------------------------------
 hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
 hl.gesture({ fingers = 3, direction = "up", action = "fullscreen" })
-hl.gesture({ fingers = 3, direction = "down", action = toggle_row })
+-- Fires as soon as the swipe is recognised, like 4 up, not when the fingers lift.
+hl.gesture({ fingers = 3, direction = "down", action = { start = toggle_row } })
 
 -- Fires as soon as the swipe is recognised, not when the fingers lift, so the
 -- overview is already appearing during the swipe.
