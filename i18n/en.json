@@ -4,5 +4,6 @@
   "drag.swap": "Swap %1 ↔ %2",
   "switch.go": "%1 → %2",
   "status.go": "Go to %1",
-  "status.window": "%1 — %2"
+  "status.window": "%1 — %2",
+  "status.handle": "Drag %1 to swap the whole workspace · click to go"
 }

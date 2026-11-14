@@ -4,5 +4,6 @@
   "drag.swap": "Byt %1 ↔ %2",
   "switch.go": "%1 → %2",
   "status.go": "Gå til %1",
-  "status.window": "%1 — %2"
+  "status.window": "%1 — %2",
+  "status.handle": "Træk %1 for at bytte hele arbejdsområdet · klik for at gå"
 }

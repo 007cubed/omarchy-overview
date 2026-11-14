@@ -80,6 +80,8 @@ Item {
   property int selectedSlot: -1
   property int pointSlot: -1
   property var pointToplevel: null
+  // The pointer is on pointSlot's number badge.
+  property bool pointBadge: false
   property bool keyed: false
   property real hoverHoldUntil: 0
   // Super as seen through key events; pointer modifiers may not carry it.
@@ -347,10 +349,7 @@ Item {
       return
     }
     var tile = tiles.itemAt(slot - 1)
-    var badge = badges.itemAt(slot - 1)
-    var b = stage.mapToItem(badge, p.x, p.y)
-    var onBadge = b.x >= 0 && b.y >= 0 && b.x <= badge.width && b.y <= badge.height
-    var wholeWorkspace = withSuper || onBadge
+    var wholeWorkspace = withSuper || root.onBadge(slot, p)
     var win = wholeWorkspace ? null : root.windowAt(slot, p)
     var item = win || tile
     var local = stage.mapToItem(item, p.x, p.y)
@@ -372,11 +371,20 @@ Item {
     if (root.dragging) root.hoverSlot = root.dropSlot()
   }
 
-  // Hover, outside a press: the selection follows the pointer.
+  // Whether p (stage coordinates) is on slot's number badge, the workspace handle.
+  function onBadge(slot, p) {
+    var badge = badges.itemAt(slot - 1)
+    var b = stage.mapToItem(badge, p.x, p.y)
+    return b.x >= 0 && b.y >= 0 && b.x <= badge.width && b.y <= badge.height
+  }
+
+  // Hover, outside a press: the selection follows the pointer. The badge sits
+  // over the windows, so on it the pointer means the workspace, not a window.
   function hoverAt(p) {
     var slot = root.slotAt(p)
     root.pointSlot = slot
-    root.pointToplevel = slot > 0 ? (root.windowAt(slot, p) || {}).modelData || null : null
+    root.pointBadge = slot > 0 && root.onBadge(slot, p)
+    root.pointToplevel = slot > 0 && !root.pointBadge ? (root.windowAt(slot, p) || {}).modelData || null : null
     if (slot > 0) {
       root.selectedSlot = slot
       root.keyed = false
@@ -385,6 +393,7 @@ Item {
 
   function clearPoint() {
     root.pointSlot = -1
+    root.pointBadge = false
     root.pointToplevel = null
   }
 
@@ -426,6 +435,7 @@ Item {
       var title = String(t.title || "")
       return name && title && name !== title ? strings.t("status.window").arg(name).arg(title) : (title || name)
     }
+    if (root.pointBadge && !root.keyed) return strings.t("status.handle").arg(root.pointSlot % 10)
     var slot = root.keyed ? root.selectedSlot : root.pointSlot
     return slot > 0 ? strings.t("status.go").arg(slot % 10) : strings.t("hint")
   }
@@ -731,6 +741,23 @@ Item {
         border.color: root.accent
       }
 
+      // A badge under the pointer outlines and tints its whole tile: grabbing the
+      // badge carries the workspace, not one window. Drawn over the previews, so
+      // nothing under it moves or resizes.
+      Rectangle {
+        readonly property int slot: !root.keyed && !root.dragging && root.pointBadge ? root.pointSlot : -1
+        visible: slot > 0
+        z: 2.5
+        x: visible ? root.tileX(slot) : 0
+        y: visible ? root.tileY(slot) : 0
+        width: stage.tileW
+        height: stage.tileH
+        radius: root.radius
+        color: Util.alpha(root.accent, 0.12)
+        border.width: dragOrigin.lineWidth
+        border.color: root.activeSlot() === slot ? root.foreground : root.accent
+      }
+
       // Slot numbers, bottom-left of each tile: the handle for dragging a workspace.
       Repeater {
         id: badges
@@ -741,6 +768,9 @@ Item {
           required property int index
           readonly property int slot: index + 1
           readonly property bool active: root.activeSlot() === slot
+          // Hovered, or being dragged: the handle shows itself.
+          readonly property bool lit: !root.keyed && root.pointBadge && root.pointSlot === slot
+                                      || root.dragging && root.pressKind === "workspace" && root.pressSlot === slot
 
           z: 3
           x: root.tileX(slot) + Style.spacing.sm
@@ -748,7 +778,9 @@ Item {
           width: Math.max(height, label.implicitWidth + Style.spacing.md * 2)
           height: label.implicitHeight + Style.spacing.sm * 2
           radius: root.radius
-          color: active ? root.accent : Util.alpha(root.background, 0.75)
+          color: active ? root.accent : Util.alpha(root.background, lit ? 0.95 : 0.75)
+          border.width: lit ? Math.max(1, Style.normalBorderWidth) : 0
+          border.color: active ? root.foreground : root.accent
 
           Text {
             id: label
@@ -796,7 +828,7 @@ Item {
         z: 50
         preventStealing: true
         hoverEnabled: true
-        cursorShape: root.dragging ? Qt.ClosedHandCursor : Qt.ArrowCursor
+        cursorShape: root.dragging ? Qt.ClosedHandCursor : root.pointBadge ? Qt.OpenHandCursor : Qt.ArrowCursor
         onPressed: function(mouse) {
           root.beginPress(Qt.point(mouse.x, mouse.y), root.superHeld || (mouse.modifiers & Qt.MetaModifier) !== 0)
         }
