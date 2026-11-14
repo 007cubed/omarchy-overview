@@ -51,7 +51,7 @@ so a row change reads as a move up or down. Put it in place of `omarchy.workspac
 
 | `style` | Looks like |
 |---|---|
-| `grid` (default) | a small 5×2 block of cells; windows make a cell solid, and the accent cell slides to the slot you are on |
+| `grid` (default) | a small 5×2 block of cells: solid where there are windows, an outline where empty; the current slot is an accent cell with a ring that slides to it. Hover a slot for its number |
 | `row` | the current row's five numbers, sliding up or down when the row changes, plus ▴/▾ pointing at the other row (accent when it has windows; click to toggle row) |
 | `combo` | the current row's five numbers, with the other row as five short bars on its side (under 1–5, over 6–0), solid where it has windows; on a row change the numbers slide and the bars flip sides. Click a bar to go to that slot |
 

@@ -161,41 +161,66 @@ BarWidget {
       implicitWidth: pad * 2 + root.columns * cellW + (root.columns - 1) * gap
       implicitHeight: root.barSize
 
-      // Cells with windows read solid, empty ones faint.
+      // Occupied cells are solid, empty ones only an outline.
       Repeater {
         model: root.slots
         delegate: Rectangle {
           required property int index
+          readonly property bool occupied: root.occupied(index + 1)
           x: grid.cellX(index + 1)
           y: grid.cellY(index + 1)
           width: grid.cellW
           height: grid.cellH
           radius: Math.min(2, Style.cornerRadius)
-          color: Util.alpha(root.foreground, root.occupied(index + 1) ? 0.75 : 0.25)
+          color: occupied ? Util.alpha(root.foreground, 0.85) : "transparent"
+          border.width: occupied ? 0 : 1
+          border.color: Util.alpha(root.foreground, 0.5)
         }
       }
 
-      // The slot the monitor shows, sliding between cells and rows.
+      // The slot the monitor shows: an accent cell with a ring in the bar's
+      // text colour, a pixel larger than the cell so it reads without colour
+      // too. One element, so it slides between cells and rows.
       Rectangle {
         visible: root.activeSlot > 0
-        x: grid.cellX(Math.max(1, root.activeSlot))
-        y: grid.cellY(Math.max(1, root.activeSlot))
-        width: grid.cellW
-        height: grid.cellH
-        radius: Math.min(2, Style.cornerRadius)
+        x: grid.cellX(Math.max(1, root.activeSlot)) - 1
+        y: grid.cellY(Math.max(1, root.activeSlot)) - 1
+        width: grid.cellW + 2
+        height: grid.cellH + 2
+        radius: Math.min(3, Style.cornerRadius + 1)
         color: root.accent
+        border.width: 1
+        border.color: root.foreground
         Behavior on x { NumberAnimation { duration: Style.duration(160); easing.type: Easing.Bezier; easing.bezierCurve: Style.easeOut } }
         Behavior on y { NumberAnimation { duration: Style.duration(160); easing.type: Easing.Bezier; easing.bezierCurve: Style.easeOut } }
       }
 
-      MouseArea {
-        anchors.fill: parent
-        onClicked: function(mouse) {
-          var col = Math.floor((mouse.x - grid.pad + grid.gap / 2) / (grid.cellW + grid.gap))
-          var row = mouse.y < root.barSize / 2 ? 0 : 1
-          root.focusSlot(row * root.columns + Util.clamp(col, 0, root.columns - 1) + 1)
+      // One hit area per slot, together covering the whole widget: its column
+      // (gaps and the outer padding included) and its half of the bar height.
+      // Hovering shows the slot number in the bar's tooltip.
+      Repeater {
+        model: root.slots
+        delegate: MouseArea {
+          id: hit
+          required property int index
+          readonly property int slot: index + 1
+          readonly property int column: index % root.columns
+          // The bar's tooltip asks its target whether it is still hovered.
+          readonly property bool tooltipHovered: containsMouse
+
+          x: column === 0 ? 0 : grid.cellX(slot) - grid.gap / 2
+          width: (column === root.columns - 1 ? grid.width : grid.cellX(slot) + grid.cellW + grid.gap / 2) - x
+          y: index < root.columns ? 0 : root.barSize / 2
+          height: root.barSize / 2
+          hoverEnabled: true
+          onClicked: root.focusSlot(slot)
+          onWheel: function(wheel) { root.scrollSlots(wheel.angleDelta.y) }
+          onContainsMouseChanged: {
+            if (!root.bar) return
+            if (containsMouse) root.bar.showTooltip(hit, String(slot % 10))
+            else root.bar.hideTooltip(hit)
+          }
         }
-        onWheel: function(wheel) { root.scrollSlots(wheel.angleDelta.y) }
       }
     }
   }
