@@ -369,8 +369,6 @@ Item {
     var local = stage.mapToItem(item, p.x, p.y)
     // Without Super, empty tile space only clicks; it has nothing to drag.
     root.pressKind = win ? "window" : (wholeWorkspace ? "workspace" : "slot")
-    // Before anything dims: the workspace's copy shows the tile as it was.
-    if (root.pressKind === "workspace") Qt.callLater(workspaceSnap.scheduleUpdate)
     root.pressSlot = slot
     root.pressToplevel = win ? win.modelData : null
     root.pressPoint = p
@@ -894,16 +892,18 @@ Item {
           live: root.dragging
         }
 
-        // A workspace's copy: the tile as it looked when it was grabbed.
-        ShaderEffectSource {
-          id: workspaceSnap
-          anchors.fill: parent
-          anchors.margins: root.thickLine
+        // A workspace's copy shows its number. (Not a snapshot of the tile: a
+        // ShaderEffectSource of the overview inside itself crashed Quickshell
+        // when the overview closed.)
+        Text {
+          textFormat: Text.PlainText
           visible: root.pressKind === "workspace"
-          sourceItem: stage
-          sourceRect: root.pressSlot > 0 ? Qt.rect(root.tileX(root.pressSlot), root.tileY(root.pressSlot), stage.tileW, stage.tileH) : Qt.rect(0, 0, 1, 1)
-          live: false
-          recursive: true
+          anchors.centerIn: parent
+          text: String(root.pressSlot % 10)
+          color: root.foreground
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.display
+          font.bold: true
         }
       }
     }
