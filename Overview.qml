@@ -12,8 +12,8 @@ import qs.Ui
 //   click a workspace   go there and close
 //   drag a window       move it to the workspace it is dropped on
 //   drag a number badge swap the whole workspace with the one it is dropped on
-// A drop lands on the workspace under the centre of what is dragged (for equal
-// tiles in a grid, the one it overlaps most); dropped outside the grid, it cancels.
+// A drag picks the neighbouring workspace in the direction it moves, after a
+// fifth of a tile on each axis; dropped back near its start, it cancels.
 //                       (Super + drag anywhere too, when Hyprland lets Super through)
 //   1-9, 0              go to that slot;  Esc closes
 Item {
@@ -315,23 +315,25 @@ Item {
     return slot <= root.slots ? slot : -1
   }
 
-  // The tile nearest a point within the grid (gaps included), or -1 outside it.
-  function nearestSlot(p) {
-    var x = p.x - stage.gridX
-    var y = p.y - stage.gridY
-    var margin = root.gap / 2
-    if (x < -margin || y < -margin || x > stage.gridW + margin || y > stage.gridH + margin) return -1
-    var col = Math.max(0, Math.min(root.columns - 1, Math.floor((x + root.gap / 2) / (stage.tileW + root.gap))))
-    var row = Math.max(0, Math.min(root.rows - 1, Math.floor((y + root.gap / 2) / (stage.tileH + root.gap))))
+  // Where a drag would land, from how far it has moved: measured in tile steps
+  // per axis (tile width across, tile height down, so a diagonal costs the same
+  // both ways), and any clear movement counts. A fifth of a step picks the
+  // neighbour on that side; dropping it back near its start cancels. Past the
+  // grid's edge it stays on the last tile.
+  readonly property real dropThreshold: 0.2
+
+  function dropSlot() {
+    if (root.pressSlot < 1) return -1
+    function steps(distance, size) {
+      var n = Math.abs(distance) / (size + root.gap)
+      return n < root.dropThreshold ? 0 : Math.sign(distance) * Math.ceil(n - root.dropThreshold)
+    }
+    var col = (root.pressSlot - 1) % root.columns + steps(root.dragPoint.x - root.pressPoint.x, stage.tileW)
+    var row = Math.floor((root.pressSlot - 1) / root.columns) + steps(root.dragPoint.y - root.pressPoint.y, stage.tileH)
+    col = Math.max(0, Math.min(root.columns - 1, col))
+    row = Math.max(0, Math.min(root.rows - 1, row))
     var slot = row * root.columns + col + 1
     return slot <= root.slots ? slot : -1
-  }
-
-  // Where a drag would land: the tile under the centre of the dragged copy.
-  function dropSlot() {
-    return root.nearestSlot(Qt.point(
-      root.dragPoint.x - root.pressOffset.x + root.dragSize.width / 2,
-      root.dragPoint.y - root.pressOffset.y + root.dragSize.height / 2))
   }
 
   // ---- UI -----------------------------------------------------------------------
