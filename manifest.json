@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "guykawaii.overview",
+  "name": "Workspace Overview",
+  "version": "1.0.0",
+  "author": "GuyKawaii",
+  "description": "Live overview of every workspace on the focused monitor. Drag windows between workspaces and drag workspaces to swap them.",
+  "kinds": ["overlay"],
+  "keepLoaded": true,
+  "entryPoints": { "overlay": "Overview.qml" }
+}
