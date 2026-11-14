@@ -164,33 +164,26 @@ BarWidget {
       // Occupied cells are solid, empty ones only an outline.
       Repeater {
         model: root.slots
-        delegate: Rectangle {
+        delegate: SlotCell {
           required property int index
-          readonly property bool occupied: root.occupied(index + 1)
+          occupied: root.occupied(index + 1)
+          ink: root.foreground
           x: grid.cellX(index + 1)
           y: grid.cellY(index + 1)
           width: grid.cellW
           height: grid.cellH
-          radius: Math.min(2, Style.cornerRadius)
-          color: occupied ? Util.alpha(root.foreground, 0.85) : "transparent"
-          border.width: occupied ? 0 : 1
-          border.color: Util.alpha(root.foreground, 0.5)
         }
       }
 
-      // The slot the monitor shows: an accent cell with a ring in the bar's
-      // text colour, a pixel larger than the cell so it reads without colour
-      // too. One element, so it slides between cells and rows.
-      Rectangle {
+      // The slot the monitor shows. One element, so it slides between cells and rows.
+      SlotMarker {
         visible: root.activeSlot > 0
-        x: grid.cellX(Math.max(1, root.activeSlot)) - 1
-        y: grid.cellY(Math.max(1, root.activeSlot)) - 1
-        width: grid.cellW + 2
-        height: grid.cellH + 2
-        radius: Math.min(3, Style.cornerRadius + 1)
-        color: root.accent
-        border.width: 1
-        border.color: root.foreground
+        ink: root.foreground
+        accent: root.accent
+        x: grid.cellX(Math.max(1, root.activeSlot))
+        y: grid.cellY(Math.max(1, root.activeSlot))
+        width: grid.cellW
+        height: grid.cellH
         Behavior on x { NumberAnimation { duration: Style.duration(160); easing.type: Easing.Bezier; easing.bezierCurve: Style.easeOut } }
         Behavior on y { NumberAnimation { duration: Style.duration(160); easing.type: Easing.Bezier; easing.bezierCurve: Style.easeOut } }
       }

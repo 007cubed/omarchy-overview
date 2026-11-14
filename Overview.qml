@@ -1030,19 +1030,18 @@ Item {
         x: hintCard.borderLeft + hintCard.pad + (hintCard.innerW - hintCard.gridW) / 2
         y: hintLabel.y + hintLabel.implicitHeight + hintCard.cellGap * 2
 
-        // Workspaces with windows read solid, empty ones faint.
+        // The same cells as the bar's grid: solid with windows, an outline when empty.
         Repeater {
           model: root.slots
-          delegate: Rectangle {
+          delegate: SlotCell {
             required property int index
             readonly property var workspace: { root.hintMapped; return root.workspaceById(root.hintBlock * root.slots + index + 1) }
-            readonly property bool occupied: !!workspace && workspace.toplevels.values.length > 0
+            occupied: !!workspace && workspace.toplevels.values.length > 0
+            ink: Commons.Color.popups.text
             x: hintCard.cellX(index + 1)
             y: hintCard.cellY(index + 1)
             width: hintCard.cellW
             height: hintCard.cellH
-            radius: Math.max(2, Style.cornerRadius / 3)
-            color: Util.alpha(Commons.Color.popups.text, occupied ? 0.8 : 0.3)
           }
         }
 
@@ -1073,13 +1072,13 @@ Item {
           }
         }
 
-        // The current slot, in the accent colour over its cell.
-        Rectangle {
+        // The current slot, marked as on the bar.
+        SlotMarker {
           id: highlight
           width: hintCard.cellW
           height: hintCard.cellH
-          radius: Math.max(2, Style.cornerRadius / 3)
-          color: Commons.Color.accent
+          ink: Commons.Color.popups.text
+          accent: Commons.Color.accent
 
           ParallelAnimation {
             id: slide
