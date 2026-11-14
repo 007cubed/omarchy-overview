@@ -4,7 +4,9 @@
 --   dofile(os.getenv("HOME") .. "/.config/omarchy/plugins/guykawaii.overview/hypr/gestures.lua")
 --
 -- 3 fingers: move between places. 4 fingers: the overview and carrying windows.
---   3 left/right       next/previous slot, looping within the row (5 -> 1, 10 -> 6)
+--   3 left/right       next/previous slot, looping within the row (5 -> 1, 10 -> 6);
+--                      on a scrolling workspace, first the next/previous window in
+--                      the strip, then on to the slot at its end
 --   3 up               fullscreen
 --   3 down             toggle row: the slot above or below (3 <-> 8)
 --   4 up               open / close the overview
@@ -72,8 +74,31 @@ end
 -- Switch: go to the next/previous slot in the row. The built-in workspace swipe
 -- can't loop, so it is two one-shot gestures. Like Super + number, it makes the
 -- workspace if it is empty.
+-- On a scrolling workspace, a swipe first moves along the strip: focus goes to the
+-- next tiled window that way, which scrolls it into view. Only past the strip's
+-- last window does it go on to the next slot. False when there is none that way
+-- (or the workspace doesn't scroll, or the window floats or is fullscreen).
+local function strip_step(step)
+  local workspace = hl.get_active_workspace()
+  local window = hl.get_active_window()
+  if not workspace or workspace.tiled_layout ~= "scrolling" then return false end
+  if not window or window.floating or window.fullscreen ~= 0 then return false end
+  local centre = window.at.x + window.size.x / 2
+  for _, other in ipairs(hl.get_workspace_windows(workspace)) do
+    if other.address ~= window.address and not other.floating then
+      local x = other.at.x + other.size.x / 2
+      if (step > 0 and x > centre + 1) or (step < 0 and x < centre - 1) then
+        hl.dispatch(hl.dsp.focus({ direction = step > 0 and "r" or "l" }))
+        return true
+      end
+    end
+  end
+  return false
+end
+
 local function focus_by(step)
   return function()
+    if strip_step(step) then return end
     local slot = row_slot(step)
     if slot then
       with_slide("slide", o.workspaces.focus(slot))

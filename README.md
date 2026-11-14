@@ -113,7 +113,7 @@ dofile(os.getenv("HOME") .. "/.config/omarchy/plugins/guykawaii.overview/hypr/ge
 
 | Gesture | Action |
 |---|---|
-| 3 fingers ← → | next/previous slot, looping within the row (5 → 1, 10 → 6), empty ones too |
+| 3 fingers ← → | next/previous slot, looping within the row (5 → 1, 10 → 6), empty ones too. On a scrolling workspace it first moves to the next/previous window in the strip, and goes on to the slot only past its end |
 | 3 fingers ↑ | fullscreen |
 | 3 fingers ↓ | toggle row: go to the slot above or below (3 ↔ 8), sliding vertically |
 | 4 fingers ↑ | open the overview |
