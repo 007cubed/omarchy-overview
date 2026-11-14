@@ -81,7 +81,9 @@ everything under it in all 23 stock themes; other theme colours fall below that 
 ## Bar widget (optional)
 
 The plugin is also a bar widget that shows the ten slots as the same 5×2 grid, 1–5 over 6–10,
-so a row change reads as a move up or down. Put it in place of `omarchy.workspaces` in
+so a row change reads as a move up or down. After the slots it shows the shown workspace's layout
+the way `omarchy.workspaces` does (a square tiles, a circle scrolls, a triangle floats); click it
+to cycle, as Super + L. Put it in place of `omarchy.workspaces` in
 `~/.config/omarchy/shell.json`:
 
 ```json

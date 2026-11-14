@@ -15,7 +15,9 @@ import qs.Ui
 //   "combo" the current row's numbers, and the other row as five short bars on
 //           the side it lies (below for 6-0, above for 1-5), solid where it has
 //           windows; on a row change the numbers slide and the bars flip sides
-// Click a slot to go there; the wheel steps through the slots.
+// Click a slot to go there; the wheel steps through the slots. After the slots,
+// the shown workspace's layout as Omarchy's widget draws it (a square tiles, a
+// circle scrolls, a triangle floats); clicking it cycles to the next, as Super + L.
 // Ported down from Omarchy's own Workspaces.qml (monitor blocks, click, wheel).
 BarWidget {
   id: root
@@ -129,11 +131,100 @@ BarWidget {
   Component.onCompleted: {
     Hyprland.refreshMonitors()
     Hyprland.refreshWorkspaces()
+    root.refresh()
+  }
+
+  // ---- layout of the shown workspace (as in Omarchy's Workspaces.qml) ---------
+
+  property string activeMode: "dwindle"
+  property bool modeStale: false
+
+  function modeGlyph(mode) {
+    if (mode === "scrolling") return "󰝥"
+    if (mode === "floating") return "󰔶"
+    return "󱓻"
+  }
+
+  // A layout only changes through Omarchy's layout commands, which ask for a
+  // refresh, or a config reload, so each workspace's mode is read once and cached.
+  property var modeCache: ({})
+  property int modeGeneration: 0
+  property int modeProcWorkspace: -1
+  property int modeProcGeneration: 0
+
+  function showActiveMode() {
+    var mode = root.modeCache[root.activeId]
+    if (mode !== undefined) root.activeMode = mode
+    else root.readMode()
+  }
+
+  function readMode() {
+    if (modeProc.running) {
+      root.modeStale = true
+      return
+    }
+    if (root.activeId < 1) return
+    root.modeProcWorkspace = root.activeId
+    root.modeProcGeneration = root.modeGeneration
+    modeProc.command = ["omarchy-hyprland-workspace-layout-current", String(root.activeId)]
+    modeProc.running = true
+  }
+
+  function refresh() {
+    root.modeCache = ({})
+    root.modeGeneration++
+    root.readMode()
+  }
+
+  // The layout command acts on the focused workspace, so a click on another
+  // monitor's bar focuses that monitor first.
+  function cycleLayout() {
+    if (!root.bar) return
+    var command = "omarchy-hyprland-workspace-layout-toggle"
+    if (root.monitor && !root.monitor.focused)
+      command = "hyprctl dispatch " + Util.shellQuote("hl.dsp.focus({ monitor = \"" + root.monitorName + "\" })") + " >/dev/null && " + command
+    root.bar.run(command)
+  }
+
+  onActiveIdChanged: root.showActiveMode()
+
+  Connections {
+    target: Hyprland
+    function onRawEvent(event) {
+      if (event && String(event.name) === "configreloaded") root.refresh()
+    }
+  }
+
+  Process {
+    id: modeProc
+    stdout: StdioCollector {
+      onStreamFinished: {
+        var mode = text.trim()
+        // A read that started before a refresh may predate the change.
+        if (!mode || root.modeProcGeneration !== root.modeGeneration) return
+        root.modeCache[root.modeProcWorkspace] = mode
+        if (root.modeProcWorkspace === root.activeId) root.activeMode = mode
+      }
+    }
+    onExited: {
+      if (!root.modeStale) return
+      root.modeStale = false
+      // Deferred: the process still reports running while it signals exit.
+      Qt.callLater(root.showActiveMode)
+    }
+  }
+
+  // This widget stands in for Omarchy's workspaces widget, so it answers the
+  // refresh Omarchy's layout commands send it (Super + L, a new default).
+  ShellIpc {
+    target: "omarchy.workspaces"
+
+    function refresh(): void { root.broadcast("refresh") }
   }
 
   readonly property real trailingGap: Style.spaceReal(1.5)
 
-  implicitWidth: (look.item ? look.item.implicitWidth : 0) + trailingGap
+  implicitWidth: look.implicitWidth + layoutButton.width + trailingGap
   implicitHeight: root.barSize
 
   Loader {
@@ -141,6 +232,21 @@ BarWidget {
     anchors.left: parent.left
     anchors.verticalCenter: parent.verticalCenter
     sourceComponent: root.style === "row" ? rowLook : (root.style === "combo" ? comboLook : gridLook)
+  }
+
+  WidgetButton {
+    id: layoutButton
+    anchors.left: look.right
+    anchors.verticalCenter: parent.verticalCenter
+    visible: root.activeId > 0
+    bar: root.bar
+    text: root.modeGlyph(root.activeMode)
+    horizontalMargin: 6
+    verticalPadding: 6
+    fixedWidth: Style.space(20)
+    fixedHeight: root.barSize
+    onPressed: root.cycleLayout()
+    onWheelMoved: function(delta) { root.scrollSlots(delta) }
   }
 
   // ---- "grid": a 5x2 block of cells -------------------------------------------
