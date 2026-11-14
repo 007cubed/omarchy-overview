@@ -53,6 +53,7 @@ so a row change reads as a move up or down. Put it in place of `omarchy.workspac
 |---|---|
 | `grid` (default) | a small 5×2 block of cells; windows make a cell solid, and the accent cell slides to the slot you are on |
 | `row` | the current row's five numbers, sliding up or down when the row changes, plus ▴/▾ pointing at the other row (accent when it has windows; click to toggle row) |
+| `combo` | the current row's five numbers, with the other row as five short bars on its side (under 1–5, over 6–0), solid where it has windows; on a row change the numbers slide and the bars flip sides. Click a bar to go to that slot |
 
 Click a slot to go there; the wheel steps through the slots. The setting applies live. Unlike
 Omarchy's widget it does not show or cycle the workspace layout.

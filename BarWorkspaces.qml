@@ -12,6 +12,9 @@ import qs.Ui
 //   "grid"  a small 5x2 block of cells; the accent cell slides to the slot
 //   "row"   the current row's five numbers, sliding up or down to the other
 //           row, and a ▴/▾ that toggles row (accent when the other row has windows)
+//   "combo" the current row's numbers, and the other row as five short bars on
+//           the side it lies (below for 6-0, above for 1-5), solid where it has
+//           windows; on a row change the numbers slide and the bars flip sides
 // Click a slot to go there; the wheel steps through the slots.
 // Ported down from Omarchy's own Workspaces.qml (monitor blocks, click, wheel).
 BarWidget {
@@ -137,7 +140,7 @@ BarWidget {
     id: look
     anchors.left: parent.left
     anchors.verticalCenter: parent.verticalCenter
-    sourceComponent: root.style === "row" ? rowLook : gridLook
+    sourceComponent: root.style === "row" ? rowLook : (root.style === "combo" ? comboLook : gridLook)
   }
 
   // ---- "grid": a 5x2 block of cells -------------------------------------------
@@ -265,6 +268,84 @@ BarWidget {
         fixedHeight: root.barSize
         onPressed: root.toggleRow()
         onWheelMoved: function(delta) { root.scrollSlots(delta) }
+      }
+    }
+  }
+
+  // ---- "combo": the current row's numbers over (or under) the other row ---------
+
+  Component {
+    id: comboLook
+
+    Item {
+      id: combo
+      readonly property real buttonWidth: Style.space(20)
+      readonly property int otherRow: 1 - root.row
+      // The numbers move a little away from the bars to make room for them.
+      readonly property real nudge: Style.space(3)
+      readonly property real markHeight: Math.max(2, Style.space(2))
+      readonly property real markMargin: Style.space(3)
+
+      implicitWidth: root.columns * buttonWidth
+      implicitHeight: root.barSize
+      clip: true
+
+      // Both rows of numbers stacked, one bar-height each, as in "row".
+      Column {
+        y: -root.row * root.barSize + (root.row === 0 ? -combo.nudge : combo.nudge)
+        Behavior on y { NumberAnimation { duration: Style.duration(180); easing.type: Easing.Bezier; easing.bezierCurve: Style.easeOut } }
+
+        Repeater {
+          model: 2
+          delegate: Row {
+            required property int index
+            readonly property int rowIndex: index
+
+            Repeater {
+              model: root.columns
+              delegate: WidgetButton {
+                required property int index
+                readonly property int slot: rowIndex * root.columns + index + 1
+                readonly property bool shown: root.activeSlot === slot
+
+                bar: root.bar
+                text: String(slot % 10)
+                foreground: shown ? root.accent : root.foreground
+                opacity: shown || root.occupied(slot) ? 1 : 0.5
+                horizontalMargin: 6
+                verticalPadding: 6
+                fixedWidth: combo.buttonWidth
+                fixedHeight: root.barSize
+                onPressed: root.focusSlot(slot)
+                onWheelMoved: function(delta) { root.scrollSlots(delta) }
+              }
+            }
+          }
+        }
+      }
+
+      // The other row: a short bar under (or over) each column, solid where that
+      // slot has windows. Click one to go there.
+      Repeater {
+        model: root.columns
+        delegate: Rectangle {
+          required property int index
+          readonly property int slot: combo.otherRow * root.columns + index + 1
+
+          x: index * combo.buttonWidth + combo.buttonWidth * 0.2
+          y: combo.otherRow === 1 ? root.barSize - combo.markMargin - height : combo.markMargin
+          width: combo.buttonWidth * 0.6
+          height: combo.markHeight
+          radius: height / 2
+          color: Util.alpha(root.foreground, root.occupied(slot) ? 0.85 : 0.25)
+          Behavior on y { NumberAnimation { duration: Style.duration(180); easing.type: Easing.Bezier; easing.bezierCurve: Style.easeOut } }
+
+          MouseArea {
+            anchors.fill: parent
+            anchors.margins: -combo.markMargin
+            onClicked: root.focusSlot(parent.slot)
+          }
+        }
       }
     }
   }
