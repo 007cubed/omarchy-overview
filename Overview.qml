@@ -1046,9 +1046,10 @@ Item {
             readonly property var workspace: { root.hintMapped; return root.workspaceById(root.hintBlock * root.slots + index + 1) }
             occupied: !!workspace && workspace.toplevels.values.length > 0
             ink: Commons.Color.popups.text
-            // On a carry the other cells step back, so the accent arrow reads
-            // over solid and empty cells alike; the origin keeps its true state.
-            opacity: root.hintCarry && index + 1 !== root.hintFrom ? 0.35 : 1
+            // On a carry every cell steps back (the origin too: the arrow starts
+            // on it), so the accent arrow keeps at least 3:1 against whatever is
+            // under it, solid or empty (WCAG 1.4.11 for graphics).
+            opacity: root.hintCarry ? 0.35 : 1
             x: hintCard.cellX(index + 1)
             y: hintCard.cellY(index + 1)
             width: hintCard.cellW
@@ -1079,8 +1080,9 @@ Item {
           // 0 → 1 with the highlight's slide.
           property real grow: 0
           readonly property real length: fullLength * grow
-          readonly property int headLength: Style.space(5)
-          readonly property int headHalf: Style.space(3)
+          readonly property int headLength: Style.space(7)
+          readonly property int headHalf: Style.space(5)
+          readonly property int shaft: Math.max(3, Style.space(3))
           readonly property color ink: Commons.Color.accent
 
           visible: root.hintCarry && root.hintFrom !== root.hintTo && length > headLength
@@ -1092,10 +1094,11 @@ Item {
           transformOrigin: Item.Left
           rotation: Math.atan2(dy, dx) * 180 / Math.PI
 
-          // Shaft: a 2 px line.
+          // Shaft.
           Rectangle {
             width: hintArrow.length - hintArrow.headLength + 1
-            height: 2
+            height: hintArrow.shaft
+            radius: height / 2
             anchors.verticalCenter: parent.verticalCenter
             color: hintArrow.ink
           }
