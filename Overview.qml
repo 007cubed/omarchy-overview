@@ -1055,9 +1055,8 @@ Item {
 
         // A carry's track: from the middle of the slot the window left towards
         // the slot it went to, stopping 3 px before that cell (the marker's
-        // extra pixel, the halo and a pixel of air), so it never runs under the
-        // marker. Light with a 1 px halo in the card's colour, so it reads over
-        // solid cells, empty ones and the gaps. Rotated, so any direction works.
+        // extra pixel and some air), so it never runs under the marker. One
+        // colour, the card's text. Rotated, so any direction works.
         Item {
           id: hintArrow
 
@@ -1079,7 +1078,6 @@ Item {
           readonly property int headLength: Style.space(5)
           readonly property int headHalf: Style.space(3)
           readonly property color ink: Commons.Color.popups.text
-          readonly property color halo: Commons.Color.background
 
           visible: root.hintCarry && root.hintFrom !== root.hintTo && length > headLength
           // Its left middle sits on the origin's centre, and it turns around it.
@@ -1090,15 +1088,7 @@ Item {
           transformOrigin: Item.Left
           rotation: Math.atan2(dy, dx) * 180 / Math.PI
 
-          // Shaft: the halo, then the 2 px line on it.
-          Rectangle {
-            x: -1
-            width: hintArrow.length - hintArrow.headLength + 2
-            height: 4
-            radius: 2
-            anchors.verticalCenter: parent.verticalCenter
-            color: hintArrow.halo
-          }
+          // Shaft: a 2 px line.
           Rectangle {
             width: hintArrow.length - hintArrow.headLength + 1
             height: 2
@@ -1106,23 +1096,13 @@ Item {
             color: hintArrow.ink
           }
 
-          // Head: a small triangle at the tip, its halo stroked under it.
+          // Head: a small triangle at the tip.
           Shape {
             x: hintArrow.length - hintArrow.headLength
             width: hintArrow.headLength
             height: parent.height
             preferredRendererType: Shape.CurveRenderer
 
-            ShapePath {
-              strokeColor: hintArrow.halo
-              strokeWidth: 2
-              joinStyle: ShapePath.RoundJoin
-              fillColor: hintArrow.halo
-              startX: 0; startY: 1
-              PathLine { x: hintArrow.headLength; y: hintArrow.height / 2 }
-              PathLine { x: 0; y: hintArrow.height - 1 }
-              PathLine { x: 0; y: 1 }
-            }
             ShapePath {
               strokeColor: "transparent"
               fillColor: hintArrow.ink
