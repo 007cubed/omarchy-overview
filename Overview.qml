@@ -1120,18 +1120,20 @@ Item {
     BorderSurface {
       id: hintCard
 
-      readonly property int pad: Style.space(10)
-      readonly property int cellGap: Style.space(4)
-      readonly property int cellW: Style.space(22)
-      readonly property int cellH: Math.round(cellW * hintPanel.height / Math.max(1, hintPanel.width))
-      readonly property int gridW: root.columns * cellW + (root.columns - 1) * cellGap
-      readonly property int gridH: root.rows * cellH + (root.rows - 1) * cellGap
+      // Cells, gaps and the grid's place in whole screen pixels (see root.px),
+      // so every cell and gap comes out the same width at a fractional scale.
+      readonly property real pad: root.px(Style.space(10))
+      readonly property real cellGap: root.line(Style.space(4))
+      readonly property real cellW: root.line(Style.space(22))
+      readonly property real cellH: root.line(cellW * hintPanel.height / Math.max(1, hintPanel.width))
+      readonly property real gridW: root.columns * cellW + (root.columns - 1) * cellGap
+      readonly property real gridH: root.rows * cellH + (root.rows - 1) * cellGap
       // A carry's caption never widens the card; its name is cut to fit instead.
-      readonly property int innerW: Math.max(gridW, hintLabel.implicitWidth)
-      readonly property int captionH: root.hintCarry ? cellGap * 2 + hintCaption.implicitHeight : 0
+      readonly property real innerW: root.px(Math.max(gridW, hintLabel.implicitWidth))
+      readonly property real captionH: root.hintCarry ? cellGap * 2 + hintCaption.implicitHeight : 0
       // The plain switch card's height. A carry adds its caption below it, so the
       // label and grid sit in the same place either way.
-      readonly property int plainH: borderTop + pad * 2 + borderBottom + hintLabel.implicitHeight + cellGap * 2 + gridH
+      readonly property real plainH: borderTop + pad * 2 + borderBottom + hintLabel.implicitHeight + cellGap * 2 + gridH
 
       function cellX(slot) { return ((slot - 1) % root.columns) * (cellW + cellGap) }
       function cellY(slot) { return Math.floor((slot - 1) / root.columns) * (cellH + cellGap) }
@@ -1154,9 +1156,9 @@ Item {
 
       width: borderLeft + pad * 2 + borderRight + innerW
       height: plainH + captionH
-      anchors.horizontalCenter: parent.horizontalCenter
+      x: root.px((parent.width - width) / 2)
       // Pinned by the plain card's top, so a carry grows the card downwards.
-      y: parent.height - Style.space(67) - plainH
+      y: root.px(parent.height - Style.space(67) - plainH)
       color: Util.alpha(Commons.Color.background, 0.97)
       borderSpec: Border.surfaceSpec("popups", "border", Commons.Color.popups.border, Math.max(1, Style.space(2)))
       radius: Style.cornerRadius
@@ -1178,8 +1180,8 @@ Item {
 
       Item {
         id: hintGrid
-        x: hintCard.borderLeft + hintCard.pad + (hintCard.innerW - hintCard.gridW) / 2
-        y: hintLabel.y + hintLabel.implicitHeight + hintCard.cellGap * 2
+        x: root.px(hintCard.borderLeft + hintCard.pad + (hintCard.innerW - hintCard.gridW) / 2)
+        y: root.px(hintLabel.y + hintLabel.implicitHeight + hintCard.cellGap * 2)
 
         // The same cells as the bar's grid: solid with windows, an outline when
         // empty. Bound to the live window lists, so the slot a carried window
