@@ -27,7 +27,7 @@ a bar widget in the same shape, and an optional set of touchpad gestures built a
 - **Switch hint:** outside the overview, every workspace switch flashes a small 5×2 card at the
   bottom of the screen for about 0.6 s: "3 → 4" over the grid, its highlight sliding from the old
   slot to the new one. Carrying a window (4 fingers sideways, Super + Shift + number) adds an
-  arrow across the grid from the slot it left to the new one, drawn with the slide, and the app's
+  arrow across the grid from the slot it left to the new one (a wrap within the row: two short arrows, out of one edge and in from the other), drawn with the slide, and the app's
   icon and name under the grid; the slot it left shows what is still there. The carry hint stays
   a little longer (about 0.75 s). It stays away while the overview is open and on a workspace
   with a fullscreen window.
@@ -101,12 +101,12 @@ dofile(os.getenv("HOME") .. "/.config/omarchy/plugins/guykawaii.overview/hypr/ge
 
 | Gesture | Action |
 |---|---|
-| 3 fingers ← → | switch workspace, empty ones too, stopping at 1 and 10 |
+| 3 fingers ← → | next/previous slot, looping within the row (5 → 1, 10 → 6), empty ones too |
 | 3 fingers ↑ | fullscreen |
 | 3 fingers ↓ | toggle row: go to the slot above or below (3 ↔ 8), sliding vertically |
 | 4 fingers ↑ | open the overview |
 | 4 fingers ↓ | close the overview; outside it, toggle the scratchpad |
-| 4 fingers ← → | carry the focused window to the next/previous workspace, with a short slide |
+| 4 fingers ← → | carry the focused window to the next/previous slot, same loop, with a short slide |
 | Super + 3 fingers | resize: the dividers follow your fingers, on both axes |
 | Super + 3-finger tap | reset the split under the cursor to 50/50 |
 | Super + 4 fingers | drag the window under the cursor |
@@ -116,20 +116,20 @@ copy the lines you want instead of loading the file.
 
 ### How it works
 
-- **Slides.** Omarchy turns workspace animations off, so the carry and row gestures turn the
-  slide on just for their own move (a critically damped spring, about 0.16 s; sideways for carry,
-  vertical for rows) and off again 0.3 s later. Workspace keys still jump. Only the newest swipe
+- **Slides.** Omarchy turns workspace animations off, so the sideways, carry and row gestures
+  turn the animation on just for their own move (a critically damped spring, about 0.16 s;
+  sideways for switch and carry, vertical for rows) and off again 0.3 s later. Workspace keys still jump. Only the newest swipe
   turns it off, so quick swipes don't cut each other short. With animations off it only moves.
 - **Rows.** The ten slots are the overview's 5×2 grid, so 3 fingers move around it: sideways
-  along the slots, down to the other row. With two rows one toggle is enough. Like Super + number,
-  toggling into an empty slot makes that workspace. A 3-finger swipe from 5 to 6 still crosses
-  rows. Hyprland picks the slide's direction by workspace number, so going 3 → 8 slides up.
-- **Persistent slots.** Hyprland's swipe only steps through workspaces that exist, so empty slots
-  would be skipped. The file keeps every monitor's ten slots as persistent workspaces (redone when
-  a monitor arrives), so the swipe visits all ten and still follows your fingers; with
-  `workspace_swipe_create_new` off it never makes an eleventh. The costs: Omarchy's own workspace
-  widget shows all ten numbers, Super + Tab steps through empty slots too, and
-  the windows of an unplugged monitor still wait as guests on another one, as before.
+  along the row, down to the other row. With two rows one toggle is enough. Like Super + number,
+  going to an empty slot makes that workspace. Fingers left go to the next slot, right to the
+  previous one, and the row loops: 5 → 1, 1 → 5, 10 → 6, 6 → 10, never across rows. These are
+  plain one-shot gestures, not Hyprland's tracked workspace swipe (which can't loop), so the move
+  fires as soon as the swipe is recognised and doesn't follow the fingers.
+- **Wraps.** Hyprland picks the slide's direction by workspace number, so a wrap such as 5 → 1
+  slides in number order, the opposite way to the swipe. It uses the same slide anyway. The
+  switch hint draws a carried wrap as two short arrows, one out of the edge the window left and
+  one in from the other, pointing the way the swipe went.
 - **Scratchpad.** 4 fingers down closes the overview when its layer is open, and otherwise pulls
   the scratchpad down like a drop-down terminal. For 0.3 s after the overview closes it is ignored,
   so a double swipe doesn't open the scratchpad by accident.

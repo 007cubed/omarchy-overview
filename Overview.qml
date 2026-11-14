@@ -33,7 +33,8 @@ import qs.Ui
 // at the bottom of the screen, "3 → 4" over the grid, with the highlight sliding
 // from the old slot to the new one, so moving between rows reads as moving up or
 // down. Carrying a window there also draws an arrow across the grid from the
-// slot it left to the new one, and names the app under the grid. About 0.6 s.
+// slot it left to the new one (a wrap within the row: two short arrows, out of
+// one edge and in from the other), and names the app under the grid. About 0.6 s.
 Item {
   id: root
 
@@ -1046,6 +1047,7 @@ Item {
         highlight.x = cellX(slot)
         highlight.y = cellY(slot)
         hintArrow.grow = 0
+        hintArrowIn.grow = 0
       }
 
       // Slides the highlight on from wherever it is, and draws a carry's arrow
@@ -1112,63 +1114,103 @@ Item {
         // extra pixel and some air), so it never runs under the marker. One
         // colour (the theme's foreground unless set), over cells that step back.
         // Rotated, so any direction works.
-        Item {
-          id: hintArrow
+        //
+        // A wrap (5 → 1, 10 → 6, and back: same row, four cells apart) would draw
+        // a long line backwards across the row, against the swipe. It is two short
+        // arrows instead: one leaving the origin towards the grid edge, one entering
+        // the target from the opposite edge, both pointing the way the swipe went
+        // (a carry to the next slot, 5 → 1, points right). A Super + Shift + number
+        // carry across the row looks the same; it can't be told apart from a wrap.
+        component HintArrow: Item {
+          id: arrow
 
-          readonly property int from: Math.max(1, root.hintFrom)
-          readonly property int to: Math.max(1, root.hintTo)
-          readonly property real ax: hintCard.cellX(from) + hintCard.cellW / 2
-          readonly property real ay: hintCard.cellY(from) + hintCard.cellH / 2
-          readonly property real dx: hintCard.cellX(to) - hintCard.cellX(from)
-          readonly property real dy: hintCard.cellY(to) - hintCard.cellY(from)
-          readonly property real distance: Math.sqrt(dx * dx + dy * dy)
-          // From the target's centre to its edge along the line, plus the 3 px.
-          readonly property real toEdge: Math.min(
-            dx !== 0 ? (hintCard.cellW / 2 + Style.space(3)) * distance / Math.abs(dx) : Infinity,
-            dy !== 0 ? (hintCard.cellH / 2 + Style.space(3)) * distance / Math.abs(dy) : Infinity)
-          readonly property real fullLength: Math.max(0, distance - toEdge)
+          // Where it starts (its left middle), its direction in degrees and its
+          // full length once grown.
+          property real sx: 0
+          property real sy: 0
+          property real angle: 0
+          property real fullLength: 0
           // 0 → 1 with the highlight's slide.
           property real grow: 0
-          readonly property real length: fullLength * grow
+          readonly property real length: Math.max(0, fullLength) * grow
           readonly property int headLength: Style.space(7)
           readonly property int headHalf: Style.space(5)
           readonly property int shaft: Math.max(3, Style.space(3))
           readonly property color ink: root.carryArrowColor
+          property bool active: false
 
-          visible: root.hintCarry && root.hintFrom !== root.hintTo && length > headLength
-          // Its left middle sits on the origin's centre, and it turns around it.
-          x: Math.round(ax)
-          y: Math.round(ay) - height / 2
+          visible: active && length >= headLength
+          // Its left middle sits on the start, and it turns around it.
+          x: Math.round(sx)
+          y: Math.round(sy) - height / 2
           width: length
           height: headHalf * 2 + 2
           transformOrigin: Item.Left
-          rotation: Math.atan2(dy, dx) * 180 / Math.PI
+          rotation: angle
 
           // Shaft.
           Rectangle {
-            width: hintArrow.length - hintArrow.headLength + 1
-            height: hintArrow.shaft
+            width: arrow.length - arrow.headLength + 1
+            height: arrow.shaft
             radius: height / 2
             anchors.verticalCenter: parent.verticalCenter
-            color: hintArrow.ink
+            color: arrow.ink
           }
 
           // Head: a small triangle at the tip.
           Shape {
-            x: hintArrow.length - hintArrow.headLength
-            width: hintArrow.headLength
+            x: arrow.length - arrow.headLength
+            width: arrow.headLength
             height: parent.height
             preferredRendererType: Shape.CurveRenderer
 
             ShapePath {
               strokeColor: "transparent"
-              fillColor: hintArrow.ink
+              fillColor: arrow.ink
               startX: 0; startY: 1
-              PathLine { x: hintArrow.headLength; y: hintArrow.height / 2 }
-              PathLine { x: 0; y: hintArrow.height - 1 }
+              PathLine { x: arrow.headLength; y: arrow.height / 2 }
+              PathLine { x: 0; y: arrow.height - 1 }
               PathLine { x: 0; y: 1 }
             }
           }
+        }
+
+        // The route: a straight arrow, or for a wrap two stubs (see above). The
+        // wrap's direction: +1 to the right, from the higher slot to the lower.
+        readonly property int arrowFrom: Math.max(1, root.hintFrom)
+        readonly property int arrowTo: Math.max(1, root.hintTo)
+        readonly property real dx: hintCard.cellX(arrowTo) - hintCard.cellX(arrowFrom)
+        readonly property real dy: hintCard.cellY(arrowTo) - hintCard.cellY(arrowFrom)
+        readonly property real distance: Math.sqrt(dx * dx + dy * dy)
+        readonly property bool wrap: dy === 0 && Math.abs(arrowTo - arrowFrom) === root.columns - 1
+        readonly property int wrapDir: arrowFrom > arrowTo ? 1 : -1
+        // From the target's centre to its edge along the line, plus the 3 px.
+        readonly property real toEdge: Math.min(
+          dx !== 0 ? (hintCard.cellW / 2 + Style.space(3)) * distance / Math.abs(dx) : Infinity,
+          dy !== 0 ? (hintCard.cellH / 2 + Style.space(3)) * distance / Math.abs(dy) : Infinity)
+
+        HintArrow {
+          id: hintArrow
+          active: root.hintCarry && root.hintFrom !== root.hintTo
+          sx: hintCard.cellX(hintGrid.arrowFrom) + hintCard.cellW / 2
+          sy: hintCard.cellY(hintGrid.arrowFrom) + hintCard.cellH / 2
+          angle: hintGrid.wrap ? (hintGrid.wrapDir > 0 ? 0 : 180) : Math.atan2(hintGrid.dy, hintGrid.dx) * 180 / Math.PI
+          // A wrap's first stub runs from the origin's centre to just past the
+          // grid's edge, into the card's padding.
+          fullLength: hintGrid.wrap ? hintCard.cellW / 2 + hintCard.pad - Style.space(2) : hintGrid.distance - hintGrid.toEdge
+        }
+
+        // A wrap's second stub: in from the card's padding on the far side, up to
+        // the target cell (2 px of air).
+        HintArrow {
+          id: hintArrowIn
+          active: root.hintCarry && root.hintFrom !== root.hintTo && hintGrid.wrap
+          sx: hintGrid.wrapDir > 0
+            ? hintCard.cellX(hintGrid.arrowTo) - hintCard.pad
+            : hintCard.cellX(hintGrid.arrowTo) + hintCard.cellW + hintCard.pad
+          sy: hintCard.cellY(hintGrid.arrowTo) + hintCard.cellH / 2
+          angle: hintGrid.wrapDir > 0 ? 0 : 180
+          fullLength: hintCard.pad - Style.space(2)
         }
 
         // The current slot, marked as on the bar.
@@ -1185,6 +1227,7 @@ Item {
             NumberAnimation { id: slideX; target: highlight; property: "x"; duration: Style.duration(120); easing.type: Easing.Bezier; easing.bezierCurve: Style.easeOut }
             NumberAnimation { id: slideY; target: highlight; property: "y"; duration: Style.duration(120); easing.type: Easing.Bezier; easing.bezierCurve: Style.easeOut }
             NumberAnimation { target: hintArrow; property: "grow"; from: 0; to: 1; duration: Style.duration(120); easing.type: Easing.Bezier; easing.bezierCurve: Style.easeOut }
+            NumberAnimation { target: hintArrowIn; property: "grow"; from: 0; to: 1; duration: Style.duration(120); easing.type: Easing.Bezier; easing.bezierCurve: Style.easeOut }
           }
         }
       }

@@ -4,12 +4,12 @@
 --   dofile(os.getenv("HOME") .. "/.config/omarchy/plugins/guykawaii.overview/hypr/gestures.lua")
 --
 -- 3 fingers: move between places. 4 fingers: the overview and carrying windows.
---   3 left/right       switch workspace, empty ones too (see "Persistent slots")
+--   3 left/right       next/previous slot, looping within the row (5 -> 1, 10 -> 6)
 --   3 up               fullscreen
 --   3 down             toggle row: the slot above or below (3 <-> 8)
 --   4 up               open / close the overview
 --   4 down             close the overview; outside it, toggle the scratchpad
---   4 left/right       carry the focused window to the next/previous workspace
+--   4 left/right       carry the focused window to the next/previous slot, same loop
 --   SUPER + 3 swipe    resize: the dividers follow the fingers
 --   SUPER + 3 tap      reset the split under the cursor to 50/50 (a middle click)
 --   SUPER + 4 swipe    drag the window under the cursor
@@ -50,14 +50,40 @@ local function active_slot()
   return (workspace.id - 1) % 10 + 1
 end
 
--- Carry: take the focused window to the next/previous slot, sliding sideways.
+-- The slot `step` places along the active slot's row (the ten slots are a 5x2 grid,
+-- 1-5 over 6-10), looping: 5 + 1 = 1, 1 - 1 = 5, 10 + 1 = 6, 6 - 1 = 10. Never leaves the row;
+-- nil on a special or named workspace.
+local function row_slot(step)
+  local slot = active_slot()
+  if not slot then
+    return nil
+  end
+  local row = (slot - 1) // 5 * 5
+  local target = row + (slot - 1 - row + step) % 5 + 1
+  return target
+end
+
+-- Hyprland picks a workspace slide's direction by number, so a wrap (5 -> 1) slides
+-- in number order, the opposite way to the swipe. It uses the same "slide" anyway.
+-- Switch: go to the next/previous slot in the row. The built-in workspace swipe
+-- can't loop, so it is two one-shot gestures. Like Super + number, it makes the
+-- workspace if it is empty.
+local function focus_by(step)
+  return function()
+    local slot = row_slot(step)
+    if slot then
+      with_slide("slide", o.workspaces.focus(slot))
+    end
+  end
+end
+
+-- Carry: take the focused window to the next/previous slot in the row.
 local function move_window_by(step)
   return function()
-    local slot = active_slot()
-    if not slot or slot + step < 1 or slot + step > 10 then
-      return
+    local slot = row_slot(step)
+    if slot then
+      with_slide("slide", o.workspaces.move_window(slot))
     end
-    with_slide("slide", o.workspaces.move_window(slot + step))
   end
 end
 
@@ -108,7 +134,9 @@ end
 -- Gestures ------------------------------------------------------------------------
 -- One-shot gestures fire on `start`, as soon as the swipe is recognised: Hyprland
 -- fixes the direction then, and an end-only action can't be cancelled either.
-hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
+-- Fingers left = next slot, right = previous (workspace_swipe_invert's convention).
+hl.gesture({ fingers = 3, direction = "left", action = { start = focus_by(1) } })
+hl.gesture({ fingers = 3, direction = "right", action = { start = focus_by(-1) } })
 hl.gesture({ fingers = 3, direction = "up", action = "fullscreen" })
 -- Fires as soon as the swipe is recognised, like 4 up, not when the fingers lift.
 hl.gesture({ fingers = 3, direction = "down", action = { start = toggle_row } })
@@ -154,24 +182,3 @@ o.bind("SUPER + mouse:274", "Reset window split", function()
   hl.dispatch(hl.dsp.layout("splitratio -1.9"))
   hl.dispatch(hl.dsp.layout("splitratio 0.9"))
 end)
-
--- Persistent slots ------------------------------------------------------------------
--- The 3-finger swipe steps through the workspaces that exist on the monitor, so
--- empty slots would be skipped. Every monitor's ten slots are kept as persistent
--- workspaces instead: the swipe then visits all ten, still following the fingers,
--- and stops at 1 and 10 (workspace_swipe_create_new is off, so it never makes an
--- eleventh). Hyprland merges these rules with Omarchy's per-workspace ones. Rules
--- are redone when a monitor arrives, since its block may only be known then.
-local function persist_slots()
-  for _, monitor in ipairs(hl.get_monitors()) do
-    for slot = 1, 10 do
-      hl.workspace_rule({ workspace = tostring(o.workspaces.workspace_id(monitor, slot)), monitor = monitor.name, persistent = true })
-    end
-  end
-end
-persist_slots()
-hl.on("hyprland.start", persist_slots)
-hl.on("monitor.added", persist_slots)
-
--- Swiping past the last workspace does nothing instead of making an empty one.
-hl.config({ gestures = { workspace_swipe_create_new = false } })
