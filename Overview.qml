@@ -12,7 +12,8 @@ import qs.Ui
 //   click a window      focus it and close
 //   click a workspace   go there and close
 //   drag a window       move it to the workspace it is dropped on
-//   drag a number badge swap the whole workspace with the one it is dropped on
+//   drag a number badge swap the whole workspace with the one it is dropped on,
+//                       layouts intact (see swapSlots)
 // A drag picks the neighbouring workspace in the direction it moves, after a
 // fifth of a tile on each axis; dropped back near its start, it cancels. While
 // dragging, the start tile has a dashed outline, the target a solid one, and the line under the
@@ -197,11 +198,25 @@ Item {
       + '", follow = false, window = "address:' + address + '" })')
   }
 
+  // Swaps two workspaces by trading their ids, so each keeps its windows, split
+  // tree, sizes, floating positions and fullscreen untouched; nothing re-tiles.
+  // Hyprland only gives a workspace a free id, so one passes through a spare id
+  // above all others. All three changes run in one chunk, before Hyprland's
+  // deferred refresh, so the persistent slot rules never see a slot missing.
+  // The screen stays as it is: if the current workspace is one of the two, it
+  // goes along to its new slot. A slot that does not exist just takes the id.
   function swapSlots(a, b) {
-    var fromA = root.windowsIn(a)
-    var fromB = root.windowsIn(b)
-    for (var i = 0; i < fromA.length; i++) root.moveWindow(fromA[i], b)
-    for (var j = 0; j < fromB.length; j++) root.moveWindow(fromB[j], a)
+    var idA = root.workspaceId(a)
+    var idB = root.workspaceId(b)
+    Hyprland.dispatch('function() '
+      + 'local function change(from, to) hl.dispatch(hl.dsp.workspace.change_id({ workspace = tostring(from), id = to })) end; '
+      + 'local a, b = hl.get_workspace("' + idA + '"), hl.get_workspace("' + idB + '"); '
+      + 'if a and b then '
+      + 'local spare = 0; for _, w in ipairs(hl.get_workspaces()) do if w.id > spare then spare = w.id end end; '
+      + 'spare = spare + 1; '
+      + 'change(' + idA + ', spare); change(' + idB + ', ' + idA + '); change(spare, ' + idB + ') '
+      + 'elseif a then change(' + idA + ', ' + idB + ') '
+      + 'elseif b then change(' + idB + ', ' + idA + ') end end')
   }
 
   // ---- pointer warps ------------------------------------------------------------
@@ -265,7 +280,8 @@ Item {
     openwindow: true, closewindow: true, movewindow: true, movewindowv2: true,
     changefloatingmode: true, fullscreen: true, pin: true,
     workspace: true, workspacev2: true, createworkspace: true, createworkspacev2: true,
-    destroyworkspace: true, destroyworkspacev2: true, moveworkspace: true, moveworkspacev2: true
+    destroyworkspace: true, destroyworkspacev2: true, moveworkspace: true, moveworkspacev2: true,
+    changeworkspaceid: true
   })
 
   Connections {
@@ -279,6 +295,9 @@ Item {
     id: refreshTimer
     interval: 60
     onTriggered: {
+      // A swap renumbers workspaces, which moves the active-slot ring too.
+      Hyprland.refreshMonitors()
+      Hyprland.refreshWorkspaces()
       Hyprland.refreshToplevels()
       settleTimer.restart()
     }
@@ -552,7 +571,11 @@ Item {
       anchors.fill: parent
 
       readonly property real availW: width - root.gap * 4
-      readonly property real availH: height - root.gap * 6 - hint.height
+      // The status line's height comes from the font, not its text, so the
+      // grid never moves when the line changes (a title's glyphs from a
+      // fallback font would otherwise make it taller).
+      readonly property real statusH: Math.ceil(statusMetrics.height)
+      readonly property real availH: height - root.gap * 6 - statusH
       readonly property real aspect: root.monH / Math.max(1, root.monW)
       readonly property real tileW: Math.max(40, Math.min(
         (availW - root.gap * (root.columns - 1)) / root.columns,
@@ -561,8 +584,8 @@ Item {
       readonly property real tileScale: tileW / Math.max(1, root.monW)
       readonly property real gridW: root.columns * tileW + (root.columns - 1) * root.gap
       readonly property real gridH: root.rows * tileH + (root.rows - 1) * root.gap
-      readonly property real gridX: (width - gridW) / 2
-      readonly property real gridY: (height - gridH) / 2 - hint.height / 2
+      readonly property real gridX: Math.round((width - gridW) / 2)
+      readonly property real gridY: Math.round((height - gridH) / 2 - statusH / 2)
 
       opacity: root.opened ? 1 : 0
       scale: root.opened ? 1 : 0.97
@@ -738,12 +761,24 @@ Item {
         }
       }
 
+      FontMetrics {
+        id: statusMetrics
+        font: hint.font
+      }
+
+      // One line of fixed height and width, elided; centred text, so only the
+      // text itself changes.
       Text {
         id: hint
         textFormat: Text.PlainText
-        anchors.horizontalCenter: parent.horizontalCenter
+        x: root.gap
         y: stage.gridY + stage.gridH + root.gap
-        width: Math.min(implicitWidth, stage.width - root.gap * 2)
+        width: stage.width - root.gap * 2
+        height: stage.statusH
+        maximumLineCount: 1
+        wrapMode: Text.NoWrap
+        horizontalAlignment: Text.AlignHCenter
+        verticalAlignment: Text.AlignVCenter
         elide: Text.ElideRight
         text: root.statusText()
         color: root.foreground

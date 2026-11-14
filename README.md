@@ -8,7 +8,9 @@ a bar widget in the same shape, and an optional set of touchpad gestures built a
 - Omarchy's ten workspace slots in a 5×2 grid, with live window previews
 - **Click** a window to focus it, or a workspace to go there
 - **Drag** a window onto another workspace to move it
-- **Drag a number badge** onto another workspace to swap the two
+- **Drag a number badge** onto another workspace to swap the two. They trade numbers, so each
+  keeps its layout (splits, sizes, floating windows, fullscreen) exactly; the screen stays as it
+  is, and if one of them is the current workspace it goes along to its new number
 - While dragging, the start tile has a dashed outline, the target a solid one, and the line
   under the grid says what the drop does ("Move firefox: 2 → 7", "Swap 2 ↔ 7")
 - **1–0** jump to that slot, **Esc** or a click on the background closes
