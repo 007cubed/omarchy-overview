@@ -1226,19 +1226,21 @@ Item {
           property real fullLength: 0
           // 0 → 1 with the highlight's slide.
           property real grow: 0
-          readonly property real length: Math.max(0, fullLength) * grow
-          readonly property int headLength: Style.space(7)
-          readonly property int headHalf: Style.space(5)
-          readonly property int shaft: Math.max(3, Style.space(3))
+          readonly property real length: root.px(Math.max(0, fullLength) * grow)
+          // Sized in whole screen pixels, the shaft an even number of them, so
+          // the head reaches as far above the shaft as below it at any scale.
+          readonly property real headLength: root.line(Style.space(7))
+          readonly property real headHalf: root.line(Style.space(5))
+          readonly property real shaft: Math.max(2, 2 * Math.round(Style.space(3) * root.dpr / 2)) / root.dpr
           readonly property color ink: root.carryArrowColor
           property bool active: false
 
           visible: active && length >= headLength
           // Its left middle sits on the start, and it turns around it.
-          x: Math.round(sx)
-          y: Math.round(sy) - height / 2
+          x: root.px(sx)
+          y: root.px(sy - headHalf)
           width: length
-          height: headHalf * 2 + 2
+          height: headHalf * 2
           transformOrigin: Item.Left
           rotation: angle
 
@@ -1247,7 +1249,7 @@ Item {
             width: arrow.length - arrow.headLength + 1
             height: arrow.shaft
             radius: height / 2
-            anchors.verticalCenter: parent.verticalCenter
+            y: arrow.headHalf - arrow.shaft / 2
             color: arrow.ink
           }
 
@@ -1261,10 +1263,10 @@ Item {
             ShapePath {
               strokeColor: "transparent"
               fillColor: arrow.ink
-              startX: 0; startY: 1
-              PathLine { x: arrow.headLength; y: arrow.height / 2 }
-              PathLine { x: 0; y: arrow.height - 1 }
-              PathLine { x: 0; y: 1 }
+              startX: 0; startY: 0
+              PathLine { x: arrow.headLength; y: arrow.headHalf }
+              PathLine { x: 0; y: arrow.height }
+              PathLine { x: 0; y: 0 }
             }
           }
         }
