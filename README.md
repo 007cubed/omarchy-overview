@@ -26,9 +26,11 @@ a bar widget in the same shape, and an optional set of touchpad gestures built a
   the middle of the screen), so focus-follows-mouse keeps that focus. Off with `cursor:no_warps`
 - **Switch hint:** outside the overview, every workspace switch flashes a small 5×2 card at the
   bottom of the screen for about 0.6 s: "3 → 4" over the grid, its highlight sliding from the old
-  slot to the new one. Carrying a window (4 fingers sideways, Super + Shift + number) looks
-  different: the app's icon and "Move firefox: 3 → 4", and a dashed outline on the slot it left.
-  It stays away while the overview is open and on a workspace with a fullscreen window.
+  slot to the new one. Carrying a window (4 fingers sideways, Super + Shift + number) adds an
+  arrow across the grid from the slot it left to the new one, drawn with the slide, and the app's
+  icon and name under the grid; the slot it left shows what is still there. The carry hint stays
+  a little longer (about 0.75 s). It stays away while the overview is open and on a workspace
+  with a fullscreen window.
 
 ## Install
 

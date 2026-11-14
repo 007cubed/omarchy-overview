@@ -31,8 +31,8 @@ import qs.Ui
 // Outside the overview, a switch to another workspace flashes a small 5x2 card
 // at the bottom of the screen, "3 → 4" over the grid, with the highlight sliding
 // from the old slot to the new one, so moving between rows reads as moving up or
-// down. Carrying a window there shows its icon and "Move firefox: 3 → 4", and
-// the slot it left gets a dashed outline. About 0.6 s in all.
+// down. Carrying a window there also draws an arrow across the grid from the
+// slot it left to the new one, and names the app under the grid. About 0.6 s.
 Item {
   id: root
 
@@ -857,10 +857,11 @@ Item {
   // hintMapped keeps the window up while the card fades out after hintShown.
   property bool hintShown: false
   property bool hintMapped: false
-  // A carry (4 fingers sideways, Super + Shift + number): the card names the
-  // window and its app icon, and outlines the slot it left.
+  // A carry (4 fingers sideways, Super + Shift + number): an arrow from the
+  // slot the window left, and its app icon and name under the grid.
   property bool hintCarry: false
   property string hintText: ""
+  property string hintApp: ""
   property string hintIcon: ""
   property string hintLetter: ""
   // The last movewindowv2: Hyprland sends it just before the workspacev2 of a
@@ -921,8 +922,9 @@ Item {
     root.hintCarry = carry
     root.hintIcon = app ? app.icon : ""
     root.hintLetter = app && app.name ? app.name.charAt(0).toUpperCase() : ""
-    root.hintText = carry ? strings.t("drag.move").arg(app.name).arg(from % 10).arg(to % 10)
-      : from === to ? String(to % 10) : strings.t("switch.go").arg(from % 10).arg(to % 10)
+    // Short enough to read at a glance: at most 9 characters.
+    root.hintApp = !app ? "" : app.name.length > 9 ? app.name.slice(0, 8) + "…" : app.name
+    root.hintText = from === to ? String(to % 10) : strings.t("switch.go").arg(from % 10).arg(to % 10)
     root.hintMapped = true
     root.hintShown = true
     // Long enough to read, short enough to be gone before the next look; a
@@ -983,7 +985,8 @@ Item {
       readonly property int cellH: Math.round(cellW * hintPanel.height / Math.max(1, hintPanel.width))
       readonly property int gridW: root.columns * cellW + (root.columns - 1) * cellGap
       readonly property int gridH: root.rows * cellH + (root.rows - 1) * cellGap
-      readonly property int innerW: Math.max(gridW, hintLabel.implicitWidth)
+      readonly property int innerW: Math.max(gridW, hintLabel.implicitWidth, root.hintCarry ? hintCaption.implicitWidth : 0)
+      readonly property int captionH: root.hintCarry ? cellGap * 2 + hintCaption.implicitHeight : 0
 
       function cellX(slot) { return ((slot - 1) % root.columns) * (cellW + cellGap) }
       function cellY(slot) { return Math.floor((slot - 1) / root.columns) * (cellH + cellGap) }
@@ -992,8 +995,11 @@ Item {
         slide.stop()
         highlight.x = cellX(slot)
         highlight.y = cellY(slot)
+        hintArrow.grow = 0
       }
 
+      // Slides the highlight on from wherever it is, and draws a carry's arrow
+      // again from its new origin; a new switch restarts it, nothing queues.
       function slideTo(slot) {
         slide.stop()
         slideX.to = cellX(slot)
@@ -1002,7 +1008,7 @@ Item {
       }
 
       width: borderLeft + pad * 2 + borderRight + innerW
-      height: borderTop + pad * 2 + borderBottom + hintLabel.implicitHeight + cellGap * 2 + gridH
+      height: borderTop + pad * 2 + borderBottom + hintLabel.implicitHeight + cellGap * 2 + gridH + captionH
       anchors.horizontalCenter: parent.horizontalCenter
       anchors.bottom: parent.bottom
       anchors.bottomMargin: Style.space(67)
@@ -1012,17 +1018,151 @@ Item {
       opacity: root.hintShown ? 1 : 0
       Behavior on opacity { NumberAnimation { duration: Style.duration(100); easing.type: Easing.OutCubic } }
 
-      // "3 → 4", or for a carry the app icon and "Move firefox: 3 → 4".
-      Row {
+      // "3 → 4", for a switch and a carry alike.
+      Text {
         id: hintLabel
         x: hintCard.borderLeft + hintCard.pad + (hintCard.innerW - implicitWidth) / 2
         y: hintCard.borderTop + hintCard.pad
-        spacing: Style.space(6)
+        textFormat: Text.PlainText
+        text: root.hintText
+        color: Commons.Color.popups.text
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.body
+        font.bold: true
+      }
+
+      Item {
+        id: hintGrid
+        x: hintCard.borderLeft + hintCard.pad + (hintCard.innerW - hintCard.gridW) / 2
+        y: hintLabel.y + hintLabel.implicitHeight + hintCard.cellGap * 2
+
+        // The same cells as the bar's grid: solid with windows, an outline when
+        // empty. Bound to the live window lists, so the slot a carried window
+        // left shows what is still there after the move.
+        Repeater {
+          model: root.slots
+          delegate: SlotCell {
+            required property int index
+            readonly property var workspace: { root.hintMapped; return root.workspaceById(root.hintBlock * root.slots + index + 1) }
+            occupied: !!workspace && workspace.toplevels.values.length > 0
+            ink: Commons.Color.popups.text
+            x: hintCard.cellX(index + 1)
+            y: hintCard.cellY(index + 1)
+            width: hintCard.cellW
+            height: hintCard.cellH
+          }
+        }
+
+        // A carry's track: from the middle of the slot the window left towards
+        // the slot it went to, stopping 3 px before that cell (the marker's
+        // extra pixel, the halo and a pixel of air), so it never runs under the
+        // marker. Light with a 1 px halo in the card's colour, so it reads over
+        // solid cells, empty ones and the gaps. Rotated, so any direction works.
+        Item {
+          id: hintArrow
+
+          readonly property int from: Math.max(1, root.hintFrom)
+          readonly property int to: Math.max(1, root.hintTo)
+          readonly property real ax: hintCard.cellX(from) + hintCard.cellW / 2
+          readonly property real ay: hintCard.cellY(from) + hintCard.cellH / 2
+          readonly property real dx: hintCard.cellX(to) - hintCard.cellX(from)
+          readonly property real dy: hintCard.cellY(to) - hintCard.cellY(from)
+          readonly property real distance: Math.sqrt(dx * dx + dy * dy)
+          // From the target's centre to its edge along the line, plus the 3 px.
+          readonly property real toEdge: Math.min(
+            dx !== 0 ? (hintCard.cellW / 2 + 3) * distance / Math.abs(dx) : Infinity,
+            dy !== 0 ? (hintCard.cellH / 2 + 3) * distance / Math.abs(dy) : Infinity)
+          readonly property real fullLength: Math.max(0, distance - toEdge)
+          // 0 → 1 with the highlight's slide.
+          property real grow: 0
+          readonly property real length: fullLength * grow
+          readonly property int headLength: Style.space(5)
+          readonly property int headHalf: Style.space(3)
+          readonly property color ink: Commons.Color.popups.text
+          readonly property color halo: Commons.Color.background
+
+          visible: root.hintCarry && root.hintFrom !== root.hintTo && length > headLength
+          // Its left middle sits on the origin's centre, and it turns around it.
+          x: Math.round(ax)
+          y: Math.round(ay) - height / 2
+          width: length
+          height: headHalf * 2 + 2
+          transformOrigin: Item.Left
+          rotation: Math.atan2(dy, dx) * 180 / Math.PI
+
+          // Shaft: the halo, then the 2 px line on it.
+          Rectangle {
+            x: -1
+            width: hintArrow.length - hintArrow.headLength + 2
+            height: 4
+            radius: 2
+            anchors.verticalCenter: parent.verticalCenter
+            color: hintArrow.halo
+          }
+          Rectangle {
+            width: hintArrow.length - hintArrow.headLength + 1
+            height: 2
+            anchors.verticalCenter: parent.verticalCenter
+            color: hintArrow.ink
+          }
+
+          // Head: a small triangle at the tip, its halo stroked under it.
+          Shape {
+            x: hintArrow.length - hintArrow.headLength
+            width: hintArrow.headLength
+            height: parent.height
+            preferredRendererType: Shape.CurveRenderer
+
+            ShapePath {
+              strokeColor: hintArrow.halo
+              strokeWidth: 2
+              joinStyle: ShapePath.RoundJoin
+              fillColor: hintArrow.halo
+              startX: 0; startY: 1
+              PathLine { x: hintArrow.headLength; y: hintArrow.height / 2 }
+              PathLine { x: 0; y: hintArrow.height - 1 }
+              PathLine { x: 0; y: 1 }
+            }
+            ShapePath {
+              strokeColor: "transparent"
+              fillColor: hintArrow.ink
+              startX: 0; startY: 1
+              PathLine { x: hintArrow.headLength; y: hintArrow.height / 2 }
+              PathLine { x: 0; y: hintArrow.height - 1 }
+              PathLine { x: 0; y: 1 }
+            }
+          }
+        }
+
+        // The current slot, marked as on the bar.
+        SlotMarker {
+          id: highlight
+          width: hintCard.cellW
+          height: hintCard.cellH
+          ink: Commons.Color.popups.text
+          accent: Commons.Color.accent
+
+          // Style.duration: with reduced motion all three jump to the end.
+          ParallelAnimation {
+            id: slide
+            NumberAnimation { id: slideX; target: highlight; property: "x"; duration: Style.duration(120); easing.type: Easing.Bezier; easing.bezierCurve: Style.easeOut }
+            NumberAnimation { id: slideY; target: highlight; property: "y"; duration: Style.duration(120); easing.type: Easing.Bezier; easing.bezierCurve: Style.easeOut }
+            NumberAnimation { target: hintArrow; property: "grow"; from: 0; to: 1; duration: Style.duration(120); easing.type: Easing.Bezier; easing.bezierCurve: Style.easeOut }
+          }
+        }
+      }
+
+      // A carry names what moved: the app's icon (or its first letter) and name.
+      Row {
+        id: hintCaption
+        visible: root.hintCarry
+        x: hintCard.borderLeft + hintCard.pad + (hintCard.innerW - implicitWidth) / 2
+        y: hintGrid.y + hintCard.gridH + hintCard.cellGap * 2
+        spacing: Style.space(5)
 
         Item {
-          visible: root.hintCarry
-          width: Style.space(16)
-          height: Style.space(16)
+          width: Style.space(14)
+          height: Style.space(14)
           anchors.verticalCenter: parent.verticalCenter
 
           Image {
@@ -1053,73 +1193,10 @@ Item {
 
         Text {
           textFormat: Text.PlainText
-          text: root.hintText
+          text: root.hintApp
           color: Commons.Color.popups.text
           font.family: root.fontFamily
-          font.pixelSize: Style.font.body
-          font.bold: !root.hintCarry
-        }
-      }
-
-      Item {
-        x: hintCard.borderLeft + hintCard.pad + (hintCard.innerW - hintCard.gridW) / 2
-        y: hintLabel.y + hintLabel.implicitHeight + hintCard.cellGap * 2
-
-        // The same cells as the bar's grid: solid with windows, an outline when empty.
-        Repeater {
-          model: root.slots
-          delegate: SlotCell {
-            required property int index
-            readonly property var workspace: { root.hintMapped; return root.workspaceById(root.hintBlock * root.slots + index + 1) }
-            occupied: !!workspace && workspace.toplevels.values.length > 0
-            ink: Commons.Color.popups.text
-            x: hintCard.cellX(index + 1)
-            y: hintCard.cellY(index + 1)
-            width: hintCard.cellW
-            height: hintCard.cellH
-          }
-        }
-
-        // A carry's origin: dashed, as where an overview drag started.
-        Shape {
-          id: hintOrigin
-          readonly property real lineWidth: Math.max(2, Style.normalBorderWidth * 2)
-          visible: root.hintCarry && root.hintFrom !== root.hintTo
-          x: hintCard.cellX(Math.max(1, root.hintFrom)) - lineWidth
-          y: hintCard.cellY(Math.max(1, root.hintFrom)) - lineWidth
-          width: hintCard.cellW + lineWidth * 2
-          height: hintCard.cellH + lineWidth * 2
-          preferredRendererType: Shape.CurveRenderer
-
-          ShapePath {
-            strokeColor: Commons.Color.accent
-            strokeWidth: hintOrigin.lineWidth
-            strokeStyle: ShapePath.DashLine
-            dashPattern: [2, 2]
-            fillColor: "transparent"
-            PathRectangle {
-              x: hintOrigin.lineWidth / 2
-              y: hintOrigin.lineWidth / 2
-              width: hintOrigin.width - hintOrigin.lineWidth
-              height: hintOrigin.height - hintOrigin.lineWidth
-              radius: Math.max(2, Style.cornerRadius / 3) + hintOrigin.lineWidth / 2
-            }
-          }
-        }
-
-        // The current slot, marked as on the bar.
-        SlotMarker {
-          id: highlight
-          width: hintCard.cellW
-          height: hintCard.cellH
-          ink: Commons.Color.popups.text
-          accent: Commons.Color.accent
-
-          ParallelAnimation {
-            id: slide
-            NumberAnimation { id: slideX; target: highlight; property: "x"; duration: Style.duration(120); easing.type: Easing.Bezier; easing.bezierCurve: Style.easeOut }
-            NumberAnimation { id: slideY; target: highlight; property: "y"; duration: Style.duration(120); easing.type: Easing.Bezier; easing.bezierCurve: Style.easeOut }
-          }
+          font.pixelSize: Math.max(11, Style.font.bodySmall)
         }
       }
     }
