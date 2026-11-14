@@ -20,8 +20,10 @@ import qs.Ui
 //                       (Super + drag anywhere too, when Hyprland lets Super through)
 //   1-9, 0              go to that slot;  Esc closes
 // Outside the overview, a switch to another workspace flashes a small 5x2 card
-// at the bottom of the screen with the highlight sliding from the old slot to
-// the new one, so moving between rows reads as moving up or down.
+// at the bottom of the screen, "3 → 4" over the grid, with the highlight sliding
+// from the old slot to the new one, so moving between rows reads as moving up or
+// down. Carrying a window there shows its icon and "Move firefox: 3 → 4", and
+// the slot it left gets a dashed outline. About 0.6 s in all.
 Item {
   id: root
 
@@ -660,10 +662,21 @@ Item {
   property int hintFrom: -1
   property int hintTo: -1
   property int hintBlock: 0
+  // Seeded at start, so the first switch after a shell restart has a "from".
   property int lastWorkspaceId: -1
+  Component.onCompleted: root.lastWorkspaceId = Hyprland.focusedWorkspace ? Hyprland.focusedWorkspace.id : -1
   // hintMapped keeps the window up while the card fades out after hintShown.
   property bool hintShown: false
   property bool hintMapped: false
+  // A carry (4 fingers sideways, Super + Shift + number): the card names the
+  // window and its app icon, and outlines the slot it left.
+  property bool hintCarry: false
+  property string hintText: ""
+  property string hintIcon: ""
+  property string hintLetter: ""
+  // The last movewindowv2: Hyprland sends it just before the workspacev2 of a
+  // move that follows its window.
+  property var lastMove: null
 
   function workspaceById(id) {
     var values = Hyprland.workspaces.values
@@ -673,9 +686,31 @@ Item {
     return null
   }
 
+  function toplevelByAddress(address) {
+    var all = Hyprland.toplevels.values
+    for (var i = 0; i < all.length; i++) {
+      if (String(all[i].address).replace(/^0x/, "") === address) return all[i]
+    }
+    return null
+  }
+
+  // The window's app name and icon URL ("" when the theme has none).
+  function appOf(toplevel) {
+    var ipc = toplevel ? toplevel.lastIpcObject : null
+    var appId = String((ipc && ipc["class"]) || (toplevel && toplevel.wayland && toplevel.wayland.appId) || "")
+    var entry = appId ? DesktopEntries.heuristicLookup(appId) : null
+    var icon = entry && entry.icon ? String(entry.icon) : ""
+    return {
+      name: appId || String((toplevel && toplevel.title) || ""),
+      icon: icon.charAt(0) === "/" ? "file://" + icon : (icon ? Quickshell.iconPath(icon, true) : "")
+    }
+  }
+
   function showSwitch(id) {
     var previous = root.lastWorkspaceId
     root.lastWorkspaceId = id
+    var move = root.lastMove
+    root.lastMove = null
     if (id < 1 || id === previous) return
     // The overview shows the move itself, and a fullscreen window wants the screen.
     if (root.opened || Date.now() - root.closedAt < 300) return
@@ -687,13 +722,23 @@ Item {
     // From another block (another monitor's) there is nothing to slide from.
     var from = previous > 0 && Math.floor((previous - 1) / root.slots) === block
       ? (previous - 1) % root.slots + 1 : to
+    var carry = !!move && move.id === id && Date.now() - move.time < 150
+    var app = carry ? root.appOf(root.toplevelByAddress(move.address)) : null
     var fresh = !root.hintMapped
 
     root.hintBlock = block
     root.hintFrom = from
     root.hintTo = to
+    root.hintCarry = carry
+    root.hintIcon = app ? app.icon : ""
+    root.hintLetter = app && app.name ? app.name.charAt(0).toUpperCase() : ""
+    root.hintText = carry ? strings.t("drag.move").arg(app.name).arg(from % 10).arg(to % 10)
+      : from === to ? String(to % 10) : strings.t("switch.go").arg(from % 10).arg(to % 10)
     root.hintMapped = true
     root.hintShown = true
+    // Long enough to read, short enough to be gone before the next look; a
+    // carry has a name to read, so it stays a little longer.
+    hintHold.interval = Style.duration(120) + (carry ? 530 : 380)
     hintHold.restart()
     hintUnmap.stop()
     // A fresh card waits until it is revealed; one already showing slides on.
@@ -704,15 +749,20 @@ Item {
   Connections {
     target: Hyprland
     function onRawEvent(event) {
-      if (event && String(event.name) === "workspacev2")
+      var name = event ? String(event.name) : ""
+      if (name === "movewindowv2") {
+        var fields = String(event.data).split(",")
+        root.lastMove = { address: fields[0], id: parseInt(fields[1], 10), time: Date.now() }
+      } else if (name === "workspacev2") {
         root.showSwitch(parseInt(String(event.data).split(",")[0], 10))
+      }
     }
   }
 
-  // Shown for the slide plus 700 ms, then a short fade before the window goes.
+  // Shown for the slide plus a short hold (set per switch), then a fade
+  // before the window goes. Each switch starts the hold again.
   Timer {
     id: hintHold
-    interval: Style.duration(160) + 700
     onTriggered: {
       root.hintShown = false
       hintUnmap.restart()
@@ -721,7 +771,7 @@ Item {
 
   Timer {
     id: hintUnmap
-    interval: Style.duration(120)
+    interval: Style.duration(100)
     onTriggered: root.hintMapped = false
   }
 
@@ -742,6 +792,9 @@ Item {
       readonly property int cellGap: Style.space(4)
       readonly property int cellW: Style.space(22)
       readonly property int cellH: Math.round(cellW * hintPanel.height / Math.max(1, hintPanel.width))
+      readonly property int gridW: root.columns * cellW + (root.columns - 1) * cellGap
+      readonly property int gridH: root.rows * cellH + (root.rows - 1) * cellGap
+      readonly property int innerW: Math.max(gridW, hintLabel.implicitWidth)
 
       function cellX(slot) { return ((slot - 1) % root.columns) * (cellW + cellGap) }
       function cellY(slot) { return Math.floor((slot - 1) / root.columns) * (cellH + cellGap) }
@@ -759,8 +812,8 @@ Item {
         slide.start()
       }
 
-      width: borderLeft + pad * 2 + borderRight + root.columns * cellW + (root.columns - 1) * cellGap
-      height: borderTop + pad * 2 + borderBottom + root.rows * cellH + (root.rows - 1) * cellGap
+      width: borderLeft + pad * 2 + borderRight + innerW
+      height: borderTop + pad * 2 + borderBottom + hintLabel.implicitHeight + cellGap * 2 + gridH
       anchors.horizontalCenter: parent.horizontalCenter
       anchors.bottom: parent.bottom
       anchors.bottomMargin: Style.space(67)
@@ -768,11 +821,60 @@ Item {
       borderSpec: Border.surfaceSpec("popups", "border", Commons.Color.popups.border, Math.max(1, Style.space(2)))
       radius: Style.cornerRadius
       opacity: root.hintShown ? 1 : 0
-      Behavior on opacity { NumberAnimation { duration: Style.duration(120); easing.type: Easing.OutCubic } }
+      Behavior on opacity { NumberAnimation { duration: Style.duration(100); easing.type: Easing.OutCubic } }
+
+      // "3 → 4", or for a carry the app icon and "Move firefox: 3 → 4".
+      Row {
+        id: hintLabel
+        x: hintCard.borderLeft + hintCard.pad + (hintCard.innerW - implicitWidth) / 2
+        y: hintCard.borderTop + hintCard.pad
+        spacing: Style.space(6)
+
+        Item {
+          visible: root.hintCarry
+          width: Style.space(16)
+          height: Style.space(16)
+          anchors.verticalCenter: parent.verticalCenter
+
+          Image {
+            id: hintAppIcon
+            anchors.fill: parent
+            source: root.hintCarry ? root.hintIcon : ""
+            sourceSize: Qt.size(width * 2, height * 2)
+            asynchronous: false
+            visible: status === Image.Ready
+          }
+
+          Rectangle {
+            visible: !hintAppIcon.visible
+            anchors.fill: parent
+            radius: Math.max(2, Style.cornerRadius / 3)
+            color: Commons.Color.accent
+            Text {
+              textFormat: Text.PlainText
+              anchors.centerIn: parent
+              text: root.hintLetter
+              color: Commons.Color.background
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.caption
+              font.bold: true
+            }
+          }
+        }
+
+        Text {
+          textFormat: Text.PlainText
+          text: root.hintText
+          color: Commons.Color.popups.text
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.body
+          font.bold: !root.hintCarry
+        }
+      }
 
       Item {
-        x: hintCard.borderLeft + hintCard.pad
-        y: hintCard.borderTop + hintCard.pad
+        x: hintCard.borderLeft + hintCard.pad + (hintCard.innerW - hintCard.gridW) / 2
+        y: hintLabel.y + hintLabel.implicitHeight + hintCard.cellGap * 2
 
         // Workspaces with windows read solid, empty ones faint.
         Repeater {
@@ -790,6 +892,33 @@ Item {
           }
         }
 
+        // A carry's origin: dashed, as where an overview drag started.
+        Shape {
+          id: hintOrigin
+          readonly property real lineWidth: Math.max(2, Style.normalBorderWidth * 2)
+          visible: root.hintCarry && root.hintFrom !== root.hintTo
+          x: hintCard.cellX(Math.max(1, root.hintFrom)) - lineWidth
+          y: hintCard.cellY(Math.max(1, root.hintFrom)) - lineWidth
+          width: hintCard.cellW + lineWidth * 2
+          height: hintCard.cellH + lineWidth * 2
+          preferredRendererType: Shape.CurveRenderer
+
+          ShapePath {
+            strokeColor: Commons.Color.accent
+            strokeWidth: hintOrigin.lineWidth
+            strokeStyle: ShapePath.DashLine
+            dashPattern: [2, 2]
+            fillColor: "transparent"
+            PathRectangle {
+              x: hintOrigin.lineWidth / 2
+              y: hintOrigin.lineWidth / 2
+              width: hintOrigin.width - hintOrigin.lineWidth
+              height: hintOrigin.height - hintOrigin.lineWidth
+              radius: Math.max(2, Style.cornerRadius / 3) + hintOrigin.lineWidth / 2
+            }
+          }
+        }
+
         // The current slot, in the accent colour over its cell.
         Rectangle {
           id: highlight
@@ -800,8 +929,8 @@ Item {
 
           ParallelAnimation {
             id: slide
-            NumberAnimation { id: slideX; target: highlight; property: "x"; duration: Style.duration(160); easing.type: Easing.Bezier; easing.bezierCurve: Style.easeOut }
-            NumberAnimation { id: slideY; target: highlight; property: "y"; duration: Style.duration(160); easing.type: Easing.Bezier; easing.bezierCurve: Style.easeOut }
+            NumberAnimation { id: slideX; target: highlight; property: "x"; duration: Style.duration(120); easing.type: Easing.Bezier; easing.bezierCurve: Style.easeOut }
+            NumberAnimation { id: slideY; target: highlight; property: "y"; duration: Style.duration(120); easing.type: Easing.Bezier; easing.bezierCurve: Style.easeOut }
           }
         }
       }

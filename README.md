@@ -13,8 +13,10 @@ a bar widget in the same shape, and an optional set of touchpad gestures built a
   under the grid says what the drop does ("Move firefox: 2 → 7", "Swap 2 ↔ 7")
 - **1–0** jump to that slot, **Esc** or a click on the background closes
 - **Switch hint:** outside the overview, every workspace switch flashes a small 5×2 card at the
-  bottom of the screen, its highlight sliding from the old slot to the new one. It stays away
-  while the overview is open and on a workspace with a fullscreen window.
+  bottom of the screen for about 0.6 s: "3 → 4" over the grid, its highlight sliding from the old
+  slot to the new one. Carrying a window (4 fingers sideways, Super + Shift + number) looks
+  different: the app's icon and "Move firefox: 3 → 4", and a dashed outline on the slot it left.
+  It stays away while the overview is open and on a workspace with a fullscreen window.
 
 ## Install
 

@@ -1,5 +1,6 @@
 {
   "hint": "Click to go · drag a window to move it · drag a workspace by its number to swap · Esc to close",
   "drag.move": "Move %1: %2 → %3",
-  "drag.swap": "Swap %1 ↔ %2"
+  "drag.swap": "Swap %1 ↔ %2",
+  "switch.go": "%1 → %2"
 }
