@@ -750,9 +750,9 @@ Item {
         border.color: root.accent
       }
 
-      // A badge under the pointer outlines and tints its whole tile: grabbing the
-      // badge carries the workspace, not one window. Drawn over the previews, so
-      // nothing under it moves or resizes.
+      // A badge under the pointer tints its whole tile (the selection ring is
+      // already round it): grabbing the badge carries the workspace, not one
+      // window. Drawn over the previews, so nothing under it moves or resizes.
       Rectangle {
         id: handleTint
         readonly property int slot: !root.keyed && !root.dragging && root.pointBadge ? root.pointSlot : -1
@@ -764,18 +764,6 @@ Item {
         height: stage.tileH
         radius: root.radius
         color: Util.alpha(root.accent, 0.12)
-      }
-      Rectangle {
-        visible: handleTint.visible
-        z: 4
-        x: handleTint.x
-        y: handleTint.y
-        width: stage.tileW
-        height: stage.tileH
-        radius: root.radius
-        color: "transparent"
-        border.width: dragOrigin.lineWidth
-        border.color: root.activeSlot() === handleTint.slot ? root.foreground : root.accent
       }
 
       // Slot numbers, in each tile's bottom-left corner: the handle for dragging a workspace.
