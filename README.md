@@ -52,6 +52,21 @@ o.bind("SUPER + ALT + O", "Workspace overview", function()
 end)
 ```
 
+## Carry arrow colour (optional)
+
+When a window is carried to another workspace, the switch hint draws an arrow from where it
+came from. It is the theme's accent unless Omarchy's `shell.toml` says otherwise, either the
+theme's own or your `~/.config/omarchy/shell.toml` (which survives theme switches):
+
+```toml
+[overview]
+carry-arrow = "green"   # a colors.toml name (green, yellow, magenta, …), a role
+                        # (accent, text, urgent, muted) or "#rrggbb"
+```
+
+A name follows the theme: "green" is each theme's own green. The other workspaces step back
+while the arrow shows, so most theme colours keep at least 3:1 against what is under it.
+
 ## Bar widget (optional)
 
 The plugin is also a bar widget that shows the ten slots as the same 5×2 grid, 1–5 over 6–10,

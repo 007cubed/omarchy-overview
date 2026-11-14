@@ -1,5 +1,6 @@
 import Quickshell
 import Quickshell.Hyprland
+import Quickshell.Io
 import Quickshell.Wayland
 import QtQuick
 import QtQuick.Shapes
@@ -868,6 +869,48 @@ Item {
   // move that follows its window.
   property var lastMove: null
 
+  // ---- carry arrow colour ------------------------------------------------------
+  // Set in Omarchy's shell.toml, the theme's or ~/.config/omarchy/shell.toml (which
+  // survives theme switches):
+  //   [overview]
+  //   carry-arrow = "green"   # a colors.toml name, a role (accent, text, urgent,
+  //                           # muted) or "#rrggbb"; unset = the theme's accent
+  // Omarchy's Color only keeps the core roles, so names like "green" are looked
+  // up in the theme's colors.toml, read again whenever the theme changes.
+  property var themePalette: ({})
+  readonly property color carryArrowColor: {
+    var accent = Commons.Color.accent
+    var value = String(Commons.Color.pick("overview.carry-arrow", "")).trim()
+    if (!value) return accent
+    var name = value.toLowerCase()
+    var core = ["accent", "foreground", "text", "urgent", "muted", "background"]
+    if (value.charAt(0) !== "#" && core.indexOf(name) < 0)
+      return root.themePalette[name] || accent
+    return Commons.Color.flatColor(value, accent)
+  }
+
+  FileView {
+    id: themeColorsFile
+    path: Quickshell.env("HOME") + "/.local/state/omarchy/current/theme/colors.toml"
+    watchChanges: false
+    printErrors: false
+    onLoaded: {
+      var palette = {}
+      var lines = String(text()).split("\n")
+      for (var i = 0; i < lines.length; i++) {
+        var match = lines[i].match(/^\s*([A-Za-z0-9_-]+)\s*=\s*["']?(#[0-9A-Fa-f]{6})/)
+        if (match) palette[match[1].toLowerCase()] = match[2]
+      }
+      root.themePalette = palette
+    }
+  }
+
+  // A theme switch changes the accent; read the new theme's palette then.
+  Connections {
+    target: Commons.Color
+    function onAccentChanged() { themeColorsFile.reload() }
+  }
+
   function workspaceById(id) {
     var values = Hyprland.workspaces.values
     for (var i = 0; i < values.length; i++) {
@@ -1087,7 +1130,7 @@ Item {
           readonly property int headLength: Style.space(7)
           readonly property int headHalf: Style.space(5)
           readonly property int shaft: Math.max(3, Style.space(3))
-          readonly property color ink: Commons.Color.accent
+          readonly property color ink: root.carryArrowColor
 
           visible: root.hintCarry && root.hintFrom !== root.hintTo && length > headLength
           // Its left middle sits on the origin's centre, and it turns around it.
