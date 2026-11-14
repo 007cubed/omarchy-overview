@@ -13,7 +13,8 @@
 --   SUPER + 3 swipe    resize: the dividers follow the fingers
 --   SUPER + 3 tap      reset the split under the cursor to 50/50 (a middle click)
 --   SUPER + 4 swipe    drag the window under the cursor
---   SUPER + 4 pinch    float / tile the window under the cursor
+--   SUPER + 4 spread   pop the window out (float, centred, on top everywhere)
+--   SUPER + 4 pinch    put it back into the tiling
 --
 -- Assumes Omarchy's ten workspace slots per monitor (o.workspaces).
 
@@ -176,10 +177,27 @@ hl.gesture({ fingers = 3, direction = "swipe", mods = "SUPER", action = {
   end,
 } })
 -- Broad "swipe" rules last, so they don't overshadow the directional ones.
--- SUPER + 4-finger pinch (in or out): toggle the window under the cursor between
--- floating and tiled, like SUPER+T. Fires as the pinch is recognised.
-hl.gesture({ fingers = 4, direction = "pinch", mods = "SUPER", action = { start = function()
-  hl.dispatch(hl.dsp.window.float({ action = "toggle" }))
+-- SUPER + 4-finger spread / pinch: one direction per state, so a pinch misread
+-- from a drag can't flip anything the wrong way.
+--   spread  pop the window under the cursor out: Omarchy's SUPER+O (float,
+--           1300x900 centred, pinned on top across workspaces)
+--   pinch   put it back: un-pop a popped window, or tile a plain floating one
+-- Fire as the pinch is recognised.
+local function pop()
+  hl.exec_cmd("omarchy-hyprland-window-pop")
+end
+hl.gesture({ fingers = 4, direction = "pinchout", mods = "SUPER", action = { start = function()
+  local w = hl.get_active_window()
+  if w and not w.pinned then pop() end
+end } })
+hl.gesture({ fingers = 4, direction = "pinchin", mods = "SUPER", action = { start = function()
+  local w = hl.get_active_window()
+  if not w then return end
+  if w.pinned then
+    pop()
+  elseif w.floating then
+    hl.dispatch(hl.dsp.window.float({ action = "toggle" }))
+  end
 end } })
 hl.gesture({ fingers = 4, direction = "swipe", mods = "SUPER", action = "move" })
 
