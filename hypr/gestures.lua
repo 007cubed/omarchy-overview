@@ -6,7 +6,8 @@
 -- 3 fingers: move between places. 4 fingers: the overview and carrying windows.
 --   3 left/right       switch workspace
 --   3 up / down        fullscreen / scratchpad
---   4 up / down        open / close the overview
+--   4 up               open / close the overview
+--   4 down             close the overview; outside it, toggle row (3 <-> 8)
 --   4 left/right       carry the focused window to the next/previous workspace
 --   SUPER + 3 swipe    resize: the dividers follow the fingers
 --   SUPER + 3 tap      reset the split under the cursor to 50/50 (a middle click)
@@ -16,32 +17,67 @@
 
 local OVERVIEW = "guykawaii.overview"
 
--- Carry ---------------------------------------------------------------------------
--- Carrying a window slides the workspaces. Omarchy keeps that animation off, so it
--- is turned on only for the swipe. Each swipe bumps `carry_gen`, so only the newest
--- swipe's timer turns it off again (an older timer would cut a later slide short).
+-- Slides ------------------------------------------------------------------------
+-- Omarchy keeps the workspaces animation off, so workspace keys jump. A gesture
+-- turns it on just for its own move and off again 300 ms later. Each move bumps
+-- `slide_gen`, so only the newest move's timer turns it off (an older timer would
+-- cut a later slide short). With animations off altogether it only moves.
 hl.curve("overviewCarrySpring", { type = "spring", mass = 1, stiffness = 800, dampening = 49 })
-local carry_gen = 0
+local slide_gen = 0
+local function with_slide(style, fn)
+  if not hl.get_config("animations:enabled") then
+    fn()
+    return
+  end
+  slide_gen = slide_gen + 1
+  local gen = slide_gen
+  hl.animation({ leaf = "workspaces", enabled = true, speed = 4, spring = "overviewCarrySpring", style = style })
+  fn()
+  hl.timer(function()
+    if gen == slide_gen then
+      hl.animation({ leaf = "workspaces", enabled = false })
+    end
+  end, { timeout = 300, type = "oneshot" })
+end
+
+-- The active workspace's slot (1-10), or nil on a special or named workspace.
+local function active_slot()
+  local workspace = hl.get_active_workspace()
+  if not workspace or workspace.special or workspace.id < 1 then
+    return nil
+  end
+  return (workspace.id - 1) % 10 + 1
+end
+
+-- Carry: take the focused window to the next/previous slot, sliding sideways.
 local function move_window_by(step)
   return function()
-    local workspace = hl.get_active_workspace()
-    if not workspace or workspace.special or workspace.id < 1 then
+    local slot = active_slot()
+    if not slot or slot + step < 1 or slot + step > 10 then
       return
     end
-    local slot = (workspace.id - 1) % 10 + 1 + step
-    if slot < 1 or slot > 10 then
-      return
-    end
-    carry_gen = carry_gen + 1
-    local gen = carry_gen
-    hl.animation({ leaf = "workspaces", enabled = true, speed = 4, spring = "overviewCarrySpring", style = "slide" })
-    o.workspaces.move_window(slot)()
-    hl.timer(function()
-      if gen == carry_gen then
-        hl.animation({ leaf = "workspaces", enabled = false })
-      end
-    end, { timeout = 300, type = "oneshot" })
+    with_slide("slide", o.workspaces.move_window(slot + step))
   end
+end
+
+-- Rows: the ten slots are a 5x2 grid, 1-5 over 6-10, as in the overview. Toggling
+-- the row goes to the slot above or below (3 <-> 8), sliding vertically. Like
+-- Super + number, it makes the workspace if it is empty.
+local function toggle_row()
+  local slot = active_slot()
+  if not slot then
+    return
+  end
+  with_slide("slidevert", o.workspaces.focus(slot <= 5 and slot + 5 or slot - 5))
+end
+
+local function overview_open()
+  for _, layer in ipairs(hl.get_layers()) do
+    if layer.namespace == "guykawaii-overview" then
+      return true
+    end
+  end
+  return false
 end
 
 -- Resize --------------------------------------------------------------------------
@@ -66,8 +102,13 @@ hl.gesture({ fingers = 3, direction = "down", action = "special", workspace_name
 hl.gesture({ fingers = 4, direction = "up", action = function()
   hl.exec_cmd("omarchy-shell shell toggle " .. OVERVIEW .. " '{}'")
 end })
+-- 4 down closes the overview when it is open, and otherwise toggles the row.
 hl.gesture({ fingers = 4, direction = "down", action = function()
-  hl.exec_cmd("omarchy-shell shell hide " .. OVERVIEW)
+  if overview_open() then
+    hl.exec_cmd("omarchy-shell shell hide " .. OVERVIEW)
+  else
+    toggle_row()
+  end
 end })
 hl.gesture({ fingers = 4, direction = "left", action = move_window_by(1) })
 hl.gesture({ fingers = 4, direction = "right", action = move_window_by(-1) })
