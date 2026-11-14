@@ -110,8 +110,9 @@ dofile(os.getenv("HOME") .. "/.config/omarchy/plugins/guykawaii.overview/hypr/ge
 | Super + 3 fingers | resize: the dividers follow your fingers, on both axes |
 | Super + 3-finger tap | reset the split under the cursor to 50/50 |
 | Super + 4 fingers | drag the window under the cursor |
-| Super + 4-finger spread | pop the window out: float, centred, kept on top on every workspace (Omarchy's Super + O) |
-| Super + 4-finger pinch | put it back into the tiling |
+| 4-finger spread | lift the window out of the tiling: it floats where it is |
+| Super + 4-finger spread | pop it: float, centred, kept on top on every workspace (like Omarchy's Super + O) |
+| 4-finger pinch, with or without Super | put it back one step: fullscreen → normal, popped → floating, floating → tiled |
 
 It replaces any gestures you already have on the same fingers. To take only some of them,
 copy the lines you want instead of loading the file.

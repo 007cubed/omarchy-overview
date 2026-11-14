@@ -13,8 +13,9 @@
 --   SUPER + 3 swipe    resize: the dividers follow the fingers
 --   SUPER + 3 tap      reset the split under the cursor to 50/50 (a middle click)
 --   SUPER + 4 swipe    drag the window under the cursor
---   SUPER + 4 spread   pop the window out (float, centred, on top everywhere)
---   SUPER + 4 pinch    put it back into the tiling
+--   4 spread           lift the window: tiled -> floating
+--   SUPER + 4 spread   pop it: floating, centred, on top on every workspace
+--   4 pinch (+SUPER)   put it back one step: popped -> floating -> tiled
 --
 -- Assumes Omarchy's ten workspace slots per monitor (o.workspaces).
 
@@ -176,29 +177,53 @@ hl.gesture({ fingers = 3, direction = "swipe", mods = "SUPER", action = {
     resize_windows = {}
   end,
 } })
--- Broad "swipe" rules last, so they don't overshadow the directional ones.
--- SUPER + 4-finger spread / pinch: one direction per state, so a pinch misread
--- from a drag can't flip anything the wrong way.
---   spread  pop the window under the cursor out: Omarchy's SUPER+O (float,
---           1300x900 centred, pinned on top across workspaces)
---   pinch   put it back: un-pop a popped window, or tile a plain floating one
--- Fire as the pinch is recognised.
-local function pop()
-  hl.exec_cmd("omarchy-hyprland-window-pop")
+-- 4-finger spread / pinch: one ladder, tiled -> floating -> popped.
+--   spread          lift one step: tiled -> floating, in place
+--   SUPER + spread  pop: floating 1300x900, centred, pinned on top on every
+--                   workspace (Omarchy's SUPER+O look, and its "pop" tag)
+--   pinch (either)  lower one step: fullscreen -> normal, popped -> floating,
+--                   floating -> tiled
+-- Pinch works with or without SUPER, so enough pinches always get a window back
+-- into the tiling, also one floated or popped by keys. A gesture whose target
+-- is already reached does nothing, so a misread one can't flip anything back.
+-- Fire as the pinch is recognised. Hyprland matches mods exactly, so the plain
+-- and SUPER pinch are both bound.
+local function act(fn)
+  return { start = function()
+    local w = hl.get_active_window()
+    if w then fn(w) end
+  end }
 end
-hl.gesture({ fingers = 4, direction = "pinchout", mods = "SUPER", action = { start = function()
-  local w = hl.get_active_window()
-  if w and not w.pinned then pop() end
-end } })
-hl.gesture({ fingers = 4, direction = "pinchin", mods = "SUPER", action = { start = function()
-  local w = hl.get_active_window()
-  if not w then return end
-  if w.pinned then
-    pop()
-  elseif w.floating then
-    hl.dispatch(hl.dsp.window.float({ action = "toggle" }))
+local function lift(w)
+  if w.fullscreen == 0 and not w.floating then
+    hl.dispatch(hl.dsp.window.float({ action = "on" }))
   end
-end } })
+end
+local function pop(w)
+  if w.pinned then return end
+  if w.fullscreen ~= 0 then hl.dispatch(hl.dsp.window.fullscreen({ action = "unset" })) end
+  if not w.floating then hl.dispatch(hl.dsp.window.float({ action = "on" })) end
+  hl.dispatch(hl.dsp.window.resize({ x = 1300, y = 900 }))
+  hl.dispatch(hl.dsp.window.center({}))
+  hl.dispatch(hl.dsp.window.pin({}))
+  hl.dispatch(hl.dsp.window.alter_zorder({ mode = "top" }))
+  hl.dispatch(hl.dsp.window.tag({ tag = "+pop" }))
+end
+local function lower(w)
+  if w.fullscreen ~= 0 then
+    hl.dispatch(hl.dsp.window.fullscreen({ action = "unset" }))
+  elseif w.pinned then
+    hl.dispatch(hl.dsp.window.pin({}))
+    hl.dispatch(hl.dsp.window.tag({ tag = "-pop" }))
+  elseif w.floating then
+    hl.dispatch(hl.dsp.window.float({ action = "off" }))
+  end
+end
+hl.gesture({ fingers = 4, direction = "pinchout", action = act(lift) })
+hl.gesture({ fingers = 4, direction = "pinchout", mods = "SUPER", action = act(pop) })
+hl.gesture({ fingers = 4, direction = "pinchin", action = act(lower) })
+hl.gesture({ fingers = 4, direction = "pinchin", mods = "SUPER", action = act(lower) })
+-- Broad "swipe" rules last, so they don't overshadow the directional ones.
 hl.gesture({ fingers = 4, direction = "swipe", mods = "SUPER", action = "move" })
 
 -- 0.56 has no "splitratio exact", so clamp to the minimum (0.1) and add 0.9.
