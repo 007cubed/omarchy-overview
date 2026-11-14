@@ -228,10 +228,12 @@ local function settle(w)
   end
   if w.floating then hl.dispatch(hl.dsp.window.float({ action = "off" })) end
 end
-hl.gesture({ fingers = 4, direction = "pinchout", action = act(lift) })
-hl.gesture({ fingers = 4, direction = "pinchout", mods = "SUPER", action = act(pop) })
-hl.gesture({ fingers = 4, direction = "pinchin", action = act(lower) })
-hl.gesture({ fingers = 4, direction = "pinchin", mods = "SUPER", action = act(settle) })
+-- Hyprland's names read the other way round from the fingers: "pinchin" is
+-- the spread (fingers apart), "pinchout" the pinch (fingers together).
+hl.gesture({ fingers = 4, direction = "pinchin", action = act(lift) })
+hl.gesture({ fingers = 4, direction = "pinchin", mods = "SUPER", action = act(pop) })
+hl.gesture({ fingers = 4, direction = "pinchout", action = act(lower) })
+hl.gesture({ fingers = 4, direction = "pinchout", mods = "SUPER", action = act(settle) })
 -- Broad "swipe" rules last, so they don't overshadow the directional ones.
 hl.gesture({ fingers = 4, direction = "swipe", mods = "SUPER", action = "move" })
 
