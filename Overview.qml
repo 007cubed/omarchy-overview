@@ -417,9 +417,9 @@ Item {
 
       opacity: root.opened ? 1 : 0
       scale: root.opened ? 1 : 0.97
-      Behavior on opacity { NumberAnimation { duration: Style.duration(180); easing.type: Easing.OutCubic } }
+      Behavior on opacity { NumberAnimation { duration: Style.duration(120); easing.type: Easing.OutCubic } }
       Behavior on scale {
-        NumberAnimation { duration: Style.duration(180); easing.type: Easing.Bezier; easing.bezierCurve: Style.easeOut }
+        NumberAnimation { duration: Style.duration(120); easing.type: Easing.Bezier; easing.bezierCurve: Style.easeOut }
       }
 
       // Tile backgrounds. Previews and badges are separate layers above them, so

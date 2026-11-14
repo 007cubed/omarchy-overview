@@ -110,9 +110,13 @@ hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
 hl.gesture({ fingers = 3, direction = "up", action = "fullscreen" })
 hl.gesture({ fingers = 3, direction = "down", action = toggle_row })
 
-hl.gesture({ fingers = 4, direction = "up", action = function()
-  hl.exec_cmd("omarchy-shell shell toggle " .. OVERVIEW .. " '{}'")
-end })
+-- Fires as soon as the swipe is recognised, not when the fingers lift, so the
+-- overview is already appearing during the swipe.
+hl.gesture({ fingers = 4, direction = "up", action = {
+  start = function()
+    hl.exec_cmd("omarchy-shell shell toggle " .. OVERVIEW .. " '{}'")
+  end,
+} })
 -- 4 down closes the overview when it is open, and otherwise toggles the scratchpad
 -- (pulled down like a drop-down terminal; same as SUPER+S).
 hl.gesture({ fingers = 4, direction = "down", action = function()
