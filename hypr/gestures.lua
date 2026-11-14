@@ -13,7 +13,6 @@
 --   SUPER + 3 swipe    resize: the dividers follow the fingers
 --   SUPER + 3 tap      reset the split under the cursor to 50/50 (a middle click)
 --   SUPER + 4 swipe    drag the window under the cursor
---   4 spread / pinch   zoom in / out around the pointer
 --   SUPER + 4 pinch    float / tile the window under the cursor
 --
 -- Assumes Omarchy's ten workspace slots per monitor (o.workspaces).
@@ -177,10 +176,6 @@ hl.gesture({ fingers = 3, direction = "swipe", mods = "SUPER", action = {
   end,
 } })
 -- Broad "swipe" rules last, so they don't overshadow the directional ones.
--- 4-finger spread / pinch (no SUPER): a magnifier around the pointer that follows
--- the fingers; pinched back under 1.05x it snaps to normal. A swipe misread as a
--- pinch hardly changes the finger distance, so it stays at (and snaps to) 1x.
-hl.gesture({ fingers = 4, direction = "pinch", action = "cursor_zoom", mode = "live" })
 -- SUPER + 4-finger pinch (in or out): toggle the window under the cursor between
 -- floating and tiled, like SUPER+T. Fires as the pinch is recognised.
 hl.gesture({ fingers = 4, direction = "pinch", mods = "SUPER", action = { start = function()
