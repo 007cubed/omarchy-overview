@@ -106,6 +106,8 @@ local function set_no_anim(value)
 end
 
 -- Gestures ------------------------------------------------------------------------
+-- One-shot gestures fire on `start`, as soon as the swipe is recognised: Hyprland
+-- fixes the direction then, and an end-only action can't be cancelled either.
 hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
 hl.gesture({ fingers = 3, direction = "up", action = "fullscreen" })
 -- Fires as soon as the swipe is recognised, like 4 up, not when the fingers lift.
@@ -120,15 +122,15 @@ hl.gesture({ fingers = 4, direction = "up", action = {
 } })
 -- 4 down closes the overview when it is open, and otherwise toggles the scratchpad
 -- (pulled down like a drop-down terminal; same as SUPER+S).
-hl.gesture({ fingers = 4, direction = "down", action = function()
+hl.gesture({ fingers = 4, direction = "down", action = { start = function()
   if overview_open() then
     hl.exec_cmd("omarchy-shell shell hide " .. OVERVIEW)
   elseif not overview_just_closed then
     hl.dispatch(hl.dsp.workspace.toggle_special("scratchpad"))
   end
-end })
-hl.gesture({ fingers = 4, direction = "left", action = move_window_by(1) })
-hl.gesture({ fingers = 4, direction = "right", action = move_window_by(-1) })
+end } })
+hl.gesture({ fingers = 4, direction = "left", action = { start = move_window_by(1) } })
+hl.gesture({ fingers = 4, direction = "right", action = { start = move_window_by(-1) } })
 
 hl.gesture({ fingers = 3, direction = "swipe", mods = "SUPER", action = {
   start = function()
