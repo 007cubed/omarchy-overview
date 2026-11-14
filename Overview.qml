@@ -758,7 +758,7 @@ Item {
         border.color: root.activeSlot() === slot ? root.foreground : root.accent
       }
 
-      // Slot numbers, bottom-left of each tile: the handle for dragging a workspace.
+      // Slot numbers, in each tile's bottom-left corner: the handle for dragging a workspace.
       Repeater {
         id: badges
         model: root.slots
@@ -773,8 +773,9 @@ Item {
                                       || root.dragging && root.pressKind === "workspace" && root.pressSlot === slot
 
           z: 3
-          x: root.tileX(slot) + Style.spacing.sm
-          y: root.tileY(slot) + stage.tileH - height - Style.spacing.sm
+          // Flush in the tile's corner; it shares the tile's rounding there.
+          x: root.tileX(slot)
+          y: root.tileY(slot) + stage.tileH - height
           width: Math.max(height, label.implicitWidth + Style.spacing.md * 2)
           height: label.implicitHeight + Style.spacing.sm * 2
           radius: root.radius
