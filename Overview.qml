@@ -16,6 +16,9 @@ import qs.Ui
 // fifth of a tile on each axis; dropped back near its start, it cancels.
 //                       (Super + drag anywhere too, when Hyprland lets Super through)
 //   1-9, 0              go to that slot;  Esc closes
+// Outside the overview, a switch to another workspace flashes a small 5x2 card
+// at the bottom of the screen with the highlight sliding from the old slot to
+// the new one, so moving between rows reads as moving up or down.
 Item {
   id: root
 
@@ -24,6 +27,8 @@ Item {
   property var manifest: null
 
   property bool opened: false
+  // When the overview last closed; a switch it caused shows no hint.
+  property real closedAt: 0
 
   readonly property int slots: 10
   readonly property int columns: 5
@@ -79,6 +84,7 @@ Item {
 
   function close() {
     root.opened = false
+    root.closedAt = Date.now()
     root.resetPress()
   }
 
@@ -586,6 +592,160 @@ Item {
           font.family: root.fontFamily
           font.pixelSize: Style.font.display
           font.bold: true
+        }
+      }
+    }
+  }
+
+  // ---- switch hint ----------------------------------------------------------------
+
+  // The slot the hint slides from and to, and the block of ten it shows.
+  property int hintFrom: -1
+  property int hintTo: -1
+  property int hintBlock: 0
+  property int lastWorkspaceId: -1
+  // hintMapped keeps the window up while the card fades out after hintShown.
+  property bool hintShown: false
+  property bool hintMapped: false
+
+  function workspaceById(id) {
+    var values = Hyprland.workspaces.values
+    for (var i = 0; i < values.length; i++) {
+      if (values[i].id === id) return values[i]
+    }
+    return null
+  }
+
+  function showSwitch(id) {
+    var previous = root.lastWorkspaceId
+    root.lastWorkspaceId = id
+    if (id < 1 || id === previous) return
+    // The overview shows the move itself, and a fullscreen window wants the screen.
+    if (root.opened || Date.now() - root.closedAt < 300) return
+    var ws = root.workspaceById(id)
+    if (ws && ws.hasFullscreen) return
+
+    var block = Math.floor((id - 1) / root.slots)
+    var to = (id - 1) % root.slots + 1
+    // From another block (another monitor's) there is nothing to slide from.
+    var from = previous > 0 && Math.floor((previous - 1) / root.slots) === block
+      ? (previous - 1) % root.slots + 1 : to
+    var fresh = !root.hintMapped
+
+    root.hintBlock = block
+    root.hintFrom = from
+    root.hintTo = to
+    root.hintMapped = true
+    root.hintShown = true
+    hintHold.restart()
+    hintUnmap.stop()
+    // A fresh card waits until it is revealed; one already showing slides on.
+    if (fresh) hintCard.place(from)
+    else hintCard.slideTo(to)
+  }
+
+  Connections {
+    target: Hyprland
+    function onRawEvent(event) {
+      if (event && String(event.name) === "workspacev2")
+        root.showSwitch(parseInt(String(event.data).split(",")[0], 10))
+    }
+  }
+
+  // Shown for the slide plus 700 ms, then a short fade before the window goes.
+  Timer {
+    id: hintHold
+    interval: Style.duration(160) + 700
+    onTriggered: {
+      root.hintShown = false
+      hintUnmap.restart()
+    }
+  }
+
+  Timer {
+    id: hintUnmap
+    interval: Style.duration(120)
+    onTriggered: root.hintMapped = false
+  }
+
+  OverlayWindow {
+    id: hintPanel
+    shown: root.hintMapped
+    shownKeyboardFocus: WlrKeyboardFocus.None
+    WlrLayershell.namespace: "guykawaii-switch-hint"
+    // Visual only: an empty input region never blocks clicks below it.
+    mask: Region {}
+
+    onContentRevealedChanged: if (contentRevealed) hintCard.slideTo(root.hintTo)
+
+    BorderSurface {
+      id: hintCard
+
+      readonly property int pad: Style.space(10)
+      readonly property int cellGap: Style.space(4)
+      readonly property int cellW: Style.space(22)
+      readonly property int cellH: Math.round(cellW * hintPanel.height / Math.max(1, hintPanel.width))
+
+      function cellX(slot) { return ((slot - 1) % root.columns) * (cellW + cellGap) }
+      function cellY(slot) { return Math.floor((slot - 1) / root.columns) * (cellH + cellGap) }
+
+      function place(slot) {
+        slide.stop()
+        highlight.x = cellX(slot)
+        highlight.y = cellY(slot)
+      }
+
+      function slideTo(slot) {
+        slide.stop()
+        slideX.to = cellX(slot)
+        slideY.to = cellY(slot)
+        slide.start()
+      }
+
+      width: borderLeft + pad * 2 + borderRight + root.columns * cellW + (root.columns - 1) * cellGap
+      height: borderTop + pad * 2 + borderBottom + root.rows * cellH + (root.rows - 1) * cellGap
+      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.bottom: parent.bottom
+      anchors.bottomMargin: Style.space(67)
+      color: Util.alpha(Commons.Color.background, 0.97)
+      borderSpec: Border.surfaceSpec("popups", "border", Commons.Color.popups.border, Math.max(1, Style.space(2)))
+      radius: Style.cornerRadius
+      opacity: root.hintShown ? 1 : 0
+      Behavior on opacity { NumberAnimation { duration: Style.duration(120); easing.type: Easing.OutCubic } }
+
+      Item {
+        x: hintCard.borderLeft + hintCard.pad
+        y: hintCard.borderTop + hintCard.pad
+
+        // Workspaces with windows read solid, empty ones faint.
+        Repeater {
+          model: root.slots
+          delegate: Rectangle {
+            required property int index
+            readonly property var workspace: { root.hintMapped; return root.workspaceById(root.hintBlock * root.slots + index + 1) }
+            readonly property bool occupied: !!workspace && workspace.toplevels.values.length > 0
+            x: hintCard.cellX(index + 1)
+            y: hintCard.cellY(index + 1)
+            width: hintCard.cellW
+            height: hintCard.cellH
+            radius: Math.max(2, Style.cornerRadius / 3)
+            color: Util.alpha(Commons.Color.popups.text, occupied ? 0.8 : 0.3)
+          }
+        }
+
+        // The current slot, in the accent colour over its cell.
+        Rectangle {
+          id: highlight
+          width: hintCard.cellW
+          height: hintCard.cellH
+          radius: Math.max(2, Style.cornerRadius / 3)
+          color: Commons.Color.accent
+
+          ParallelAnimation {
+            id: slide
+            NumberAnimation { id: slideX; target: highlight; property: "x"; duration: Style.duration(160); easing.type: Easing.Bezier; easing.bezierCurve: Style.easeOut }
+            NumberAnimation { id: slideY; target: highlight; property: "y"; duration: Style.duration(160); easing.type: Easing.Bezier; easing.bezierCurve: Style.easeOut }
+          }
         }
       }
     }
