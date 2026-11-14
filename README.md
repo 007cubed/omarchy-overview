@@ -12,6 +12,9 @@ a bar widget in the same shape, and an optional set of touchpad gestures built a
 - While dragging, the start tile has a dashed outline, the target a solid one, and the line
   under the grid says what the drop does ("Move firefox: 2 → 7", "Swap 2 ↔ 7")
 - **1–0** jump to that slot, **Esc** or a click on the background closes
+- **Pointer:** opening puts the pointer on the current workspace's tile. Closing without going
+  anywhere puts it back where it was; going somewhere leaves it on the window that got focus (or
+  the middle of the screen), so focus-follows-mouse keeps that focus. Off with `cursor:no_warps`
 - **Switch hint:** outside the overview, every workspace switch flashes a small 5×2 card at the
   bottom of the screen for about 0.6 s: "3 → 4" over the grid, its highlight sliding from the old
   slot to the new one. Carrying a window (4 fingers sideways, Super + Shift + number) looks

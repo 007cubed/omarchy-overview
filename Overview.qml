@@ -19,6 +19,8 @@ import qs.Ui
 // grid says what the drop will do.
 //                       (Super + drag anywhere too, when Hyprland lets Super through)
 //   1-9, 0              go to that slot;  Esc closes
+// The pointer jumps to the current tile on open, back on a plain close, and to
+// the focused window after going somewhere (see "pointer warps").
 // Outside the overview, a switch to another workspace flashes a small 5x2 card
 // at the bottom of the screen, "3 → 4" over the grid, with the highlight sliding
 // from the old slot to the new one, so moving between rows reads as moving up or
@@ -32,6 +34,9 @@ Item {
   property var manifest: null
 
   property bool opened: false
+  // Set when a click or key went somewhere, so closing leaves the pointer there
+  // instead of putting it back where it was before the overview opened.
+  property bool went: false
   // When the overview last closed; a switch it caused shows no hint.
   property real closedAt: 0
 
@@ -83,11 +88,13 @@ Item {
     root.captureMonitor()
     root.resetPress()
     root.superHeld = false
+    root.went = false
     root.opened = true
     Qt.callLater(function() { keyCatcher.forceActiveFocus() })
   }
 
   function close() {
+    if (root.opened && !root.went) root.restoreCursor()
     root.opened = false
     root.closedAt = Date.now()
     root.resetPress()
@@ -180,17 +187,54 @@ Item {
     for (var j = 0; j < fromB.length; j++) root.moveWindow(fromB[j], a)
   }
 
+  // ---- pointer warps ------------------------------------------------------------
+  // On open the pointer jumps to the current workspace's tile; closing without
+  // going anywhere puts it back, and going somewhere leaves it on the window that
+  // got focus (or the monitor's centre), so follow_mouse keeps that focus.
+  // hl.dsp.cursor.move ignores cursor:no_warps, so each chunk checks it first.
+  readonly property string noWarps: 'if hl.get_config("cursor:no_warps") then return end; '
+  // While the overview holds the keyboard the focus may not have moved yet, so
+  // the workspace's last focused window stands in.
+  readonly property string warpToFocus: 'local m = hl.get_active_monitor(); '
+    + 'local ws = m and m.active_workspace; '
+    + 'local w = hl.get_active_window(); '
+    + 'if not (w and w.workspace and ws and w.workspace.id == ws.id) then w = ws and ws.last_window end; '
+    + 'if w then '
+    + 'hl.dispatch(hl.dsp.cursor.move({ x = w.at.x + w.size.x / 2, y = w.at.y + w.size.y / 2 })) '
+    + 'elseif m then hl.dispatch(hl.dsp.cursor.move({ x = m.x + m.width / m.scale / 2, y = m.y + m.height / m.scale / 2 })) end'
+
+  function warpToTile(slot) {
+    if (slot < 1) return
+    var x = Math.round(root.monX + root.tileX(slot) + stage.tileW / 2)
+    var y = Math.round(root.monY + root.tileY(slot) + stage.tileH / 2)
+    Hyprland.dispatch('function() ' + root.noWarps + '_G.ovCursor = hl.get_cursor_pos(); '
+      + 'hl.dispatch(hl.dsp.cursor.move({ x = ' + x + ', y = ' + y + ' })) end')
+  }
+
+  function restoreCursor() {
+    Hyprland.dispatch('function() local p = _G.ovCursor; _G.ovCursor = nil; ' + root.noWarps
+      + 'if p then hl.dispatch(hl.dsp.cursor.move({ x = p.x, y = p.y })) end end')
+  }
+
+  // A go: the focus dispatch and the warp in one chunk, so the warp sees the
+  // focus it caused.
+  function go(focus) {
+    root.went = true
+    Hyprland.dispatch('function() _G.ovCursor = nil; hl.dispatch(' + focus + '); '
+      + root.noWarps + root.warpToFocus + ' end')
+  }
+
   function focusSlot(slot) {
     if (/^[A-Za-z0-9._-]+$/.test(root.monitorName))
-      Hyprland.dispatch('o.workspaces.focus(' + slot + ', "' + root.monitorName + '")')
+      root.go('o.workspaces.focus(' + slot + ', "' + root.monitorName + '")')
     else
-      Hyprland.dispatch('hl.dsp.focus({ workspace = "' + root.workspaceId(slot) + '" })')
+      root.go('hl.dsp.focus({ workspace = "' + root.workspaceId(slot) + '" })')
   }
 
   function focusWindow(toplevel) {
     var address = root.addressOf(toplevel)
     if (!address) return
-    Hyprland.dispatch('hl.dsp.focus({ window = "address:' + address + '" })')
+    root.go('hl.dsp.focus({ window = "address:' + address + '" })')
   }
 
   // Only events that move, add or remove windows change the previews; focus,
@@ -364,6 +408,9 @@ Item {
     id: panel
     shown: root.opened
     WlrLayershell.namespace: "guykawaii-overview"
+
+    // Once the layer is on screen, so the pointer lands on a drawn tile.
+    onContentRevealedChanged: if (contentRevealed && root.opened) root.warpToTile(root.activeSlot())
 
     // Dim the desktop well enough that the tiles and hint read clearly.
     Rectangle {
