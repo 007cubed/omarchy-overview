@@ -2,6 +2,7 @@ import Quickshell
 import Quickshell.Hyprland
 import Quickshell.Wayland
 import QtQuick
+import QtQuick.Shapes
 import qs.Commons
 import qs.Commons as Commons
 import qs.Ui
@@ -13,7 +14,9 @@ import qs.Ui
 //   drag a window       move it to the workspace it is dropped on
 //   drag a number badge swap the whole workspace with the one it is dropped on
 // A drag picks the neighbouring workspace in the direction it moves, after a
-// fifth of a tile on each axis; dropped back near its start, it cancels.
+// fifth of a tile on each axis; dropped back near its start, it cancels. While
+// dragging, the start tile has a dashed outline, the target a solid one, and the line under the
+// grid says what the drop will do.
 //                       (Super + drag anywhere too, when Hyprland lets Super through)
 //   1-9, 0              go to that slot;  Esc closes
 // Outside the overview, a switch to another workspace flashes a small 5x2 card
@@ -342,6 +345,17 @@ Item {
     return slot <= root.slots ? slot : -1
   }
 
+  // What a drag will do, for the line under the grid: "Move firefox: 2 → 7" or
+  // "Swap 2 ↔ 7". Over its own tile the target is "…" (dropping there cancels).
+  function dragText() {
+    var from = String(root.pressSlot % 10)
+    var to = root.hoverSlot > 0 && root.hoverSlot !== root.pressSlot ? String(root.hoverSlot % 10) : "…"
+    if (root.pressKind === "workspace") return strings.t("drag.swap").arg(from).arg(to)
+    var ipc = root.pressToplevel ? root.pressToplevel.lastIpcObject : null
+    var name = String((ipc && ipc["class"]) || (root.pressToplevel && root.pressToplevel.title) || "")
+    return strings.t("drag.move").arg(name).arg(from).arg(to)
+  }
+
   // ---- UI -----------------------------------------------------------------------
 
   OverlayWindow {
@@ -420,17 +434,17 @@ Item {
           readonly property int slot: index + 1
           readonly property bool active: root.activeSlot() === slot
           readonly property bool target: root.dragging && root.hoverSlot === slot && root.pressSlot !== slot
-          readonly property bool lifted: root.dragging && root.pressKind === "workspace" && root.pressSlot === slot
+          // Where a drag started: a darker hole, outlined by dragOrigin above it.
+          readonly property bool origin: root.dragging && root.pressSlot === slot
 
           x: root.tileX(slot)
           y: root.tileY(slot)
           width: stage.tileW
           height: stage.tileH
           radius: root.radius
-          color: target ? root.selectedBackground : root.background
+          color: target ? root.selectedBackground : (origin ? Qt.darker(root.background, 1.4) : root.background)
           border.width: active || target ? Math.max(2, Style.normalBorderWidth * 2) : Style.normalBorderWidth
           border.color: active || target ? root.accent : Commons.Color.menu.border
-          opacity: lifted ? 0.4 : 1
         }
       }
 
@@ -498,6 +512,49 @@ Item {
         }
       }
 
+      // A drag's start and target, outlined above the previews so windows don't
+      // hide them: a dashed outline where it came from, a solid one where it goes.
+      Shape {
+        id: dragOrigin
+        readonly property real inset: lineWidth / 2
+        readonly property real lineWidth: Math.max(2, Style.normalBorderWidth * 2)
+        visible: root.dragging && root.pressSlot > 0
+        z: 2.5
+        x: root.pressSlot > 0 ? root.tileX(root.pressSlot) : 0
+        y: root.pressSlot > 0 ? root.tileY(root.pressSlot) : 0
+        width: stage.tileW
+        height: stage.tileH
+        preferredRendererType: Shape.CurveRenderer
+
+        ShapePath {
+          strokeColor: root.accent
+          strokeWidth: dragOrigin.lineWidth
+          strokeStyle: ShapePath.DashLine
+          dashPattern: [4, 3]
+          fillColor: "transparent"
+          PathRectangle {
+            x: dragOrigin.inset
+            y: dragOrigin.inset
+            width: dragOrigin.width - dragOrigin.lineWidth
+            height: dragOrigin.height - dragOrigin.lineWidth
+            radius: root.radius
+          }
+        }
+      }
+
+      Rectangle {
+        visible: root.dragging && root.hoverSlot > 0 && root.hoverSlot !== root.pressSlot
+        z: 2.5
+        x: visible ? root.tileX(root.hoverSlot) : 0
+        y: visible ? root.tileY(root.hoverSlot) : 0
+        width: stage.tileW
+        height: stage.tileH
+        radius: root.radius
+        color: "transparent"
+        border.width: dragOrigin.lineWidth
+        border.color: root.accent
+      }
+
       // Slot numbers, bottom-left of each tile: the handle for dragging a workspace.
       Repeater {
         id: badges
@@ -537,9 +594,9 @@ Item {
         y: stage.gridY + stage.gridH + root.gap
         width: Math.min(implicitWidth, stage.width - root.gap * 2)
         elide: Text.ElideRight
-        text: strings.t("hint")
+        text: root.dragging ? root.dragText() : strings.t("hint")
         color: root.foreground
-        opacity: 0.7
+        opacity: root.dragging ? 1 : 0.7
         font.family: root.fontFamily
         font.pixelSize: Style.font.body
       }

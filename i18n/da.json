@@ -1,3 +1,5 @@
 {
-  "hint": "Klik for at gå dertil · træk et vindue for at flytte det · træk et arbejdsområde i dets nummer for at bytte · Esc lukker"
+  "hint": "Klik for at gå dertil · træk et vindue for at flytte det · træk et arbejdsområde i dets nummer for at bytte · Esc lukker",
+  "drag.move": "Flyt %1: %2 → %3",
+  "drag.swap": "Byt %1 ↔ %2"
 }
