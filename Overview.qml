@@ -874,19 +874,22 @@ Item {
   // survives theme switches):
   //   [overview]
   //   carry-arrow = "green"   # a colors.toml name, a role (accent, text, urgent,
-  //                           # muted) or "#rrggbb"; unset = the theme's accent
+  //                           # muted) or "#rrggbb"; unset = the theme's foreground
+  // The default is the foreground: of every theme colour it is the only one that
+  // keeps WCAG 3:1 against the card and the stepped-back cells in all stock themes
+  // (worst: everforest, 3.75:1). Accent, green and the rest fail in 4 or more.
   // Omarchy's Color only keeps the core roles, so names like "green" are looked
   // up in the theme's colors.toml, read again whenever the theme changes.
   property var themePalette: ({})
   readonly property color carryArrowColor: {
-    var accent = Commons.Color.accent
+    var fallback = Commons.Color.foreground
     var value = String(Commons.Color.pick("overview.carry-arrow", "")).trim()
-    if (!value) return accent
+    if (!value) return fallback
     var name = value.toLowerCase()
     var core = ["accent", "foreground", "text", "urgent", "muted", "background"]
     if (value.charAt(0) !== "#" && core.indexOf(name) < 0)
-      return root.themePalette[name] || accent
-    return Commons.Color.flatColor(value, accent)
+      return root.themePalette[name] || fallback
+    return Commons.Color.flatColor(value, fallback)
   }
 
   FileView {
@@ -1107,7 +1110,7 @@ Item {
         // A carry's track: from the middle of the slot the window left towards
         // the slot it went to, stopping a little before that cell (the marker's
         // extra pixel and some air), so it never runs under the marker. One
-        // colour, the theme's accent, over cells that step back during a carry.
+        // colour (the theme's foreground unless set), over cells that step back.
         // Rotated, so any direction works.
         Item {
           id: hintArrow
