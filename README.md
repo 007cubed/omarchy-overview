@@ -93,7 +93,7 @@ copy the lines you want instead of loading the file.
   toggling into an empty slot makes that workspace. A 3-finger swipe from 5 to 6 still crosses
   rows. Hyprland picks the slide's direction by workspace number, so going 3 → 8 slides up.
 - **Scratchpad.** 4 fingers down closes the overview when its layer is open, and otherwise pulls
-  the scratchpad down like a drop-down terminal. For 0.4 s after the overview closes it is ignored,
+  the scratchpad down like a drop-down terminal. For 0.3 s after the overview closes it is ignored,
   so a double swipe doesn't open the scratchpad by accident.
 - **Resize.** Hyprland's built-in `resize` gesture only snaps the window being resized, so the
   windows next to it trail behind, and it does nothing when the cursor sits on the half of a

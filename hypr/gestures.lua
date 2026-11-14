@@ -82,12 +82,12 @@ local function overview_open()
 end
 
 -- 4 down right after the overview closed (a double swipe, or Esc then a swipe)
--- would open the scratchpad by accident, so it is ignored for 400 ms.
+-- would open the scratchpad by accident, so it is ignored for 300 ms.
 local overview_just_closed = false
 hl.on("layer.closed", function(layer)
   if layer and layer.namespace == "guykawaii-overview" then
     overview_just_closed = true
-    hl.timer(function() overview_just_closed = false end, { timeout = 400, type = "oneshot" })
+    hl.timer(function() overview_just_closed = false end, { timeout = 300, type = "oneshot" })
   end
 end)
 
