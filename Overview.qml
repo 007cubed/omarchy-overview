@@ -806,7 +806,8 @@ Item {
         }
       }
 
-      // Tile outlines, over the badges.
+      // Tile outlines, over the previews and badges: accent for the current
+      // workspace and a drop target.
       Repeater {
         model: root.slots
 
@@ -825,6 +826,24 @@ Item {
           border.width: strong ? Math.max(2, Style.normalBorderWidth * 2) : Style.normalBorderWidth
           border.color: strong ? root.accent : Commons.Color.menu.border
         }
+      }
+
+      // Where Enter goes, by pointer or arrow keys: a ring just outside the tile.
+      // The tile's own background is mostly hidden under its previews, and a ring
+      // apart from the edge can't be mistaken for the current workspace's outline.
+      Rectangle {
+        readonly property int slot: !root.dragging && (root.keyed || root.pointSlot > 0) ? root.selectedSlot : -1
+        readonly property real offset: Math.max(3, Style.normalBorderWidth * 3)
+        visible: slot > 0
+        z: 4
+        x: visible ? root.tileX(slot) - offset : 0
+        y: visible ? root.tileY(slot) - offset : 0
+        width: stage.tileW + offset * 2
+        height: stage.tileH + offset * 2
+        radius: root.radius > 0 ? root.radius + offset : 0
+        color: "transparent"
+        border.width: Math.max(2, Style.normalBorderWidth * 2)
+        border.color: root.foreground
       }
 
       FontMetrics {
