@@ -13,10 +13,10 @@
 --   SUPER + 3 swipe    resize: the dividers follow the fingers
 --   SUPER + 3 tap      reset the split under the cursor to 50/50 (a middle click)
 --   SUPER + 4 swipe    drag the window under the cursor
---   4 spread           lift the window: tiled -> floating
---   SUPER + 4 spread   pop it: floating, centred, on top on every workspace
---   4 pinch            put it back one step: popped -> floating -> tiled
---   SUPER + 4 pinch    straight back into the tiling
+--   4 pinch            lift the window: tiled -> floating
+--   SUPER + 4 pinch    pop it: floating, centred, on top on every workspace
+--   4 spread           put it back one step: popped -> floating -> tiled
+--   SUPER + 4 spread   straight back into the tiling
 --
 -- Assumes Omarchy's ten workspace slots per monitor (o.workspaces).
 
@@ -178,14 +178,15 @@ hl.gesture({ fingers = 3, direction = "swipe", mods = "SUPER", action = {
     resize_windows = {}
   end,
 } })
--- 4-finger spread / pinch: one ladder, tiled -> floating -> popped.
---   spread          lift one step: tiled -> floating, in place
---   SUPER + spread  pop: floating 1300x900, centred, pinned on top on every
+-- 4-finger pinch / spread: one ladder, tiled -> floating -> popped. Pinching
+-- picks the window up out of the tiling; spreading lays it back down.
+--   pinch           lift one step: tiled -> floating, in place
+--   SUPER + pinch   pop: floating 1300x900, centred, pinned on top on every
 --                   workspace (Omarchy's SUPER+O look, and its "pop" tag)
---   pinch           lower one step: fullscreen -> normal, popped -> floating,
+--   spread          lower one step: fullscreen -> normal, popped -> floating,
 --                   floating -> tiled
---   SUPER + pinch   straight back to tiled, from any of those
--- SUPER is the big jump both ways. Pinch works with or without SUPER (Hyprland
+--   SUPER + spread  straight back to tiled, from any of those
+-- SUPER is the big jump both ways. Spread works with or without SUPER (Hyprland
 -- matches mods exactly, so both are bound), so a window floated or popped by
 -- keys always has a way back. A gesture whose target is already reached does
 -- nothing, so a misread one can't flip anything back. Fire as it is recognised.
@@ -228,8 +229,7 @@ local function settle(w)
   end
   if w.floating then hl.dispatch(hl.dsp.window.float({ action = "off" })) end
 end
--- Hyprland's names read the other way round from the fingers: "pinchin" is
--- the spread (fingers apart), "pinchout" the pinch (fingers together).
+-- Hyprland: "pinchin" = fingers together, "pinchout" = fingers apart.
 hl.gesture({ fingers = 4, direction = "pinchin", action = act(lift) })
 hl.gesture({ fingers = 4, direction = "pinchin", mods = "SUPER", action = act(pop) })
 hl.gesture({ fingers = 4, direction = "pinchout", action = act(lower) })
