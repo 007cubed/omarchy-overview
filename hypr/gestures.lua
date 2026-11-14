@@ -5,9 +5,10 @@
 --
 -- 3 fingers: move between places. 4 fingers: the overview and carrying windows.
 --   3 left/right       switch workspace
---   3 up / down        fullscreen / scratchpad
+--   3 up               fullscreen
+--   3 down             toggle row: the slot above or below (3 <-> 8)
 --   4 up               open / close the overview
---   4 down             close the overview; outside it, toggle row (3 <-> 8)
+--   4 down             close the overview; outside it, toggle the scratchpad
 --   4 left/right       carry the focused window to the next/previous workspace
 --   SUPER + 3 swipe    resize: the dividers follow the fingers
 --   SUPER + 3 tap      reset the split under the cursor to 50/50 (a middle click)
@@ -80,6 +81,16 @@ local function overview_open()
   return false
 end
 
+-- 4 down right after the overview closed (a double swipe, or Esc then a swipe)
+-- would open the scratchpad by accident, so it is ignored for 400 ms.
+local overview_just_closed = false
+hl.on("layer.closed", function(layer)
+  if layer and layer.namespace == "guykawaii-overview" then
+    overview_just_closed = true
+    hl.timer(function() overview_just_closed = false end, { timeout = 400, type = "oneshot" })
+  end
+end)
+
 -- Resize --------------------------------------------------------------------------
 -- Not the built-in "resize" action: in 0.56 it only snaps the window being resized,
 -- so its neighbours trail behind on the windowsMove animation, and its cursor-corner
@@ -97,17 +108,18 @@ end
 -- Gestures ------------------------------------------------------------------------
 hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })
 hl.gesture({ fingers = 3, direction = "up", action = "fullscreen" })
-hl.gesture({ fingers = 3, direction = "down", action = "special", workspace_name = "scratchpad" })
+hl.gesture({ fingers = 3, direction = "down", action = toggle_row })
 
 hl.gesture({ fingers = 4, direction = "up", action = function()
   hl.exec_cmd("omarchy-shell shell toggle " .. OVERVIEW .. " '{}'")
 end })
--- 4 down closes the overview when it is open, and otherwise toggles the row.
+-- 4 down closes the overview when it is open, and otherwise toggles the scratchpad
+-- (pulled down like a drop-down terminal; same as SUPER+S).
 hl.gesture({ fingers = 4, direction = "down", action = function()
   if overview_open() then
     hl.exec_cmd("omarchy-shell shell hide " .. OVERVIEW)
-  else
-    toggle_row()
+  elseif not overview_just_closed then
+    hl.dispatch(hl.dsp.workspace.toggle_special("scratchpad"))
   end
 end })
 hl.gesture({ fingers = 4, direction = "left", action = move_window_by(1) })

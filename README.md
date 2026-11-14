@@ -71,9 +71,9 @@ dofile(os.getenv("HOME") .. "/.config/omarchy/plugins/guykawaii.overview/hypr/ge
 |---|---|
 | 3 fingers ← → | switch workspace |
 | 3 fingers ↑ | fullscreen |
-| 3 fingers ↓ | scratchpad |
+| 3 fingers ↓ | toggle row: go to the slot above or below (3 ↔ 8), sliding vertically |
 | 4 fingers ↑ | open the overview |
-| 4 fingers ↓ | close the overview; outside it, toggle row: go to the slot above or below (3 ↔ 8), sliding vertically |
+| 4 fingers ↓ | close the overview; outside it, toggle the scratchpad |
 | 4 fingers ← → | carry the focused window to the next/previous workspace, with a short slide |
 | Super + 3 fingers | resize: the dividers follow your fingers, on both axes |
 | Super + 3-finger tap | reset the split under the cursor to 50/50 |
@@ -88,9 +88,13 @@ copy the lines you want instead of loading the file.
   slide on just for their own move (a critically damped spring, about 0.16 s; sideways for carry,
   vertical for rows) and off again 0.3 s later. Workspace keys still jump. Only the newest swipe
   turns it off, so quick swipes don't cut each other short. With animations off it only moves.
-- **Rows.** The ten slots are the overview's 5×2 grid. 4 fingers down closes the overview when
-  its layer is open, and otherwise toggles row. Like Super + number, toggling into an empty slot
-  makes that workspace. A 3-finger swipe from 5 to 6 still crosses rows.
+- **Rows.** The ten slots are the overview's 5×2 grid, so 3 fingers move around it: sideways
+  along the slots, down to the other row. With two rows one toggle is enough. Like Super + number,
+  toggling into an empty slot makes that workspace. A 3-finger swipe from 5 to 6 still crosses
+  rows. Hyprland picks the slide's direction by workspace number, so going 3 → 8 slides up.
+- **Scratchpad.** 4 fingers down closes the overview when its layer is open, and otherwise pulls
+  the scratchpad down like a drop-down terminal. For 0.4 s after the overview closes it is ignored,
+  so a double swipe doesn't open the scratchpad by accident.
 - **Resize.** Hyprland's built-in `resize` gesture only snaps the window being resized, so the
   windows next to it trail behind, and it does nothing when the cursor sits on the half of a
   window next to a screen edge. This one feeds the finger movement to the resize dispatcher and
