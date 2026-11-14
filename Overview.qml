@@ -606,8 +606,9 @@ Item {
         NumberAnimation { duration: Style.duration(120); easing.type: Easing.Bezier; easing.bezierCurve: Style.easeOut }
       }
 
-      // Tile backgrounds. Previews and badges are separate layers above them, so
-      // there is one preview per window rather than one per window per tile.
+      // Tile backgrounds. Previews, badges and outlines are separate layers above
+      // them, so there is one preview per window rather than one per window per
+      // tile, and the outlines run unbroken over the corner badges.
       Repeater {
         id: tiles
         model: root.slots
@@ -629,8 +630,6 @@ Item {
           height: stage.tileH
           radius: root.radius
           color: target || selected ? root.selectedBackground : (origin ? Qt.darker(root.background, 1.4) : root.background)
-          border.width: active || target ? Math.max(2, Style.normalBorderWidth * 2) : Style.normalBorderWidth
-          border.color: active || target ? root.accent : Commons.Color.menu.border
         }
       }
 
@@ -705,7 +704,7 @@ Item {
         readonly property real inset: lineWidth / 2
         readonly property real lineWidth: Math.max(2, Style.normalBorderWidth * 2)
         visible: root.dragging && root.pressSlot > 0
-        z: 2.5
+        z: 4
         x: root.pressSlot > 0 ? root.tileX(root.pressSlot) : 0
         y: root.pressSlot > 0 ? root.tileY(root.pressSlot) : 0
         width: stage.tileW
@@ -730,7 +729,7 @@ Item {
 
       Rectangle {
         visible: root.dragging && root.hoverSlot > 0 && root.hoverSlot !== root.pressSlot
-        z: 2.5
+        z: 4
         x: visible ? root.tileX(root.hoverSlot) : 0
         y: visible ? root.tileY(root.hoverSlot) : 0
         width: stage.tileW
@@ -745,6 +744,7 @@ Item {
       // badge carries the workspace, not one window. Drawn over the previews, so
       // nothing under it moves or resizes.
       Rectangle {
+        id: handleTint
         readonly property int slot: !root.keyed && !root.dragging && root.pointBadge ? root.pointSlot : -1
         visible: slot > 0
         z: 2.5
@@ -754,8 +754,18 @@ Item {
         height: stage.tileH
         radius: root.radius
         color: Util.alpha(root.accent, 0.12)
+      }
+      Rectangle {
+        visible: handleTint.visible
+        z: 4
+        x: handleTint.x
+        y: handleTint.y
+        width: stage.tileW
+        height: stage.tileH
+        radius: root.radius
+        color: "transparent"
         border.width: dragOrigin.lineWidth
-        border.color: root.activeSlot() === slot ? root.foreground : root.accent
+        border.color: root.activeSlot() === handleTint.slot ? root.foreground : root.accent
       }
 
       // Slot numbers, in each tile's bottom-left corner: the handle for dragging a workspace.
@@ -793,6 +803,27 @@ Item {
             font.pixelSize: Style.font.display
             font.bold: true
           }
+        }
+      }
+
+      // Tile outlines, over the badges.
+      Repeater {
+        model: root.slots
+
+        delegate: Rectangle {
+          required property int index
+          readonly property int slot: index + 1
+          readonly property bool strong: root.activeSlot() === slot
+                                         || root.dragging && root.hoverSlot === slot && root.pressSlot !== slot
+          z: 3.5
+          x: root.tileX(slot)
+          y: root.tileY(slot)
+          width: stage.tileW
+          height: stage.tileH
+          radius: root.radius
+          color: "transparent"
+          border.width: strong ? Math.max(2, Style.normalBorderWidth * 2) : Style.normalBorderWidth
+          border.color: strong ? root.accent : Commons.Color.menu.border
         }
       }
 
