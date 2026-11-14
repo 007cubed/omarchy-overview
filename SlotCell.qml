@@ -10,6 +10,7 @@ Rectangle {
 
   radius: Math.min(2, Style.cornerRadius)
   color: occupied ? Util.alpha(ink, 0.85) : "transparent"
-  border.width: occupied ? 0 : 1
+  // At least a hairline: an empty cell is only its outline.
+  border.width: occupied ? 0 : Math.max(1, Style.normalBorderWidth)
   border.color: Util.alpha(ink, 0.5)
 }

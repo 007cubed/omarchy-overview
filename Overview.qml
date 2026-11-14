@@ -674,7 +674,7 @@ Item {
               textFormat: Text.PlainText
               visible: !frame.modelData.wayland
               anchors.centerIn: parent
-              width: parent.width - 6
+              width: parent.width - Style.space(6)
               horizontalAlignment: Text.AlignHCenter
               elide: Text.ElideRight
               text: String(frame.ipc["class"] || frame.modelData.title || "")
@@ -1062,7 +1062,7 @@ Item {
         }
 
         // A carry's track: from the middle of the slot the window left towards
-        // the slot it went to, stopping 3 px before that cell (the marker's
+        // the slot it went to, stopping a little before that cell (the marker's
         // extra pixel and some air), so it never runs under the marker. One
         // colour, the theme's accent, over cells that step back during a carry.
         // Rotated, so any direction works.
@@ -1078,8 +1078,8 @@ Item {
           readonly property real distance: Math.sqrt(dx * dx + dy * dy)
           // From the target's centre to its edge along the line, plus the 3 px.
           readonly property real toEdge: Math.min(
-            dx !== 0 ? (hintCard.cellW / 2 + 3) * distance / Math.abs(dx) : Infinity,
-            dy !== 0 ? (hintCard.cellH / 2 + 3) * distance / Math.abs(dy) : Infinity)
+            dx !== 0 ? (hintCard.cellW / 2 + Style.space(3)) * distance / Math.abs(dx) : Infinity,
+            dy !== 0 ? (hintCard.cellH / 2 + Style.space(3)) * distance / Math.abs(dy) : Infinity)
           readonly property real fullLength: Math.max(0, distance - toEdge)
           // 0 → 1 with the highlight's slide.
           property real grow: 0
@@ -1189,7 +1189,7 @@ Item {
           elide: Text.ElideRight
           color: Commons.Color.popups.text
           font.family: root.fontFamily
-          font.pixelSize: Math.max(11, Style.font.bodySmall)
+          font.pixelSize: Style.font.bodySmall
         }
       }
     }

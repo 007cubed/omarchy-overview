@@ -7,13 +7,14 @@ import qs.Commons
 Item {
   property color ink: "white"
   property color accent: "steelblue"
+  readonly property int ring: Math.max(1, Style.normalBorderWidth)
 
   Rectangle {
     anchors.fill: parent
-    anchors.margins: -1
+    anchors.margins: -ring
     radius: Math.min(3, Style.cornerRadius + 1)
     color: parent.accent
-    border.width: 1
+    border.width: ring
     border.color: parent.ink
   }
 }
