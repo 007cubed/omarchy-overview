@@ -61,6 +61,15 @@ Item {
   property real monY: 0
   property real monW: 1920
   property real monH: 1080
+  // The monitor's scale. Tile edges and lines are snapped to whole screen
+  // pixels with it, so at a fractional scale (1.6) a line or gap comes out the
+  // same width on every side instead of rounding to 1 px here and 2 px there.
+  property real dpr: 1
+  function px(v) { return Math.round(v * root.dpr) / root.dpr }
+  // A line at least one screen pixel wide.
+  function line(v) { return Math.max(1, Math.round(v * root.dpr)) / root.dpr }
+  readonly property real thinLine: line(Style.normalBorderWidth)
+  readonly property real thickLine: line(Math.max(2, Style.normalBorderWidth * 2))
 
   // Bumped after Hyprland reports a change, so window geometry re-reads.
   property int revision: 0
@@ -145,6 +154,7 @@ Item {
     var ipc = m ? m.lastIpcObject : null
     if (ipc && ipc.width > 0 && ipc.height > 0) {
       var scale = ipc.scale > 0 ? ipc.scale : 1
+      root.dpr = scale
       var rotated = (ipc.transform || 0) % 2 === 1
       root.monX = ipc.x || 0
       root.monY = ipc.y || 0
@@ -465,8 +475,8 @@ Item {
   }
 
   // Tile geometry is plain grid arithmetic in stage coordinates.
-  function tileX(slot) { return stage.gridX + ((slot - 1) % root.columns) * (stage.tileW + root.gap) }
-  function tileY(slot) { return stage.gridY + Math.floor((slot - 1) / root.columns) * (stage.tileH + root.gap) }
+  function tileX(slot) { return root.px(stage.gridX + ((slot - 1) % root.columns) * (stage.tileW + root.gap)) }
+  function tileY(slot) { return root.px(stage.gridY + Math.floor((slot - 1) / root.columns) * (stage.tileH + root.gap)) }
 
   // The tile under a point, or -1 on a gap or outside the grid.
   function slotAt(p) {
@@ -589,15 +599,15 @@ Item {
       readonly property real statusH: Math.ceil(statusMetrics.height)
       readonly property real availH: height - root.gap * 6 - statusH
       readonly property real aspect: root.monH / Math.max(1, root.monW)
-      readonly property real tileW: Math.max(40, Math.min(
+      readonly property real tileW: root.px(Math.max(40, Math.min(
         (availW - root.gap * (root.columns - 1)) / root.columns,
-        ((availH - root.gap * (root.rows - 1)) / root.rows) / aspect))
-      readonly property real tileH: tileW * aspect
+        ((availH - root.gap * (root.rows - 1)) / root.rows) / aspect)))
+      readonly property real tileH: root.px(tileW * aspect)
       readonly property real tileScale: tileW / Math.max(1, root.monW)
       readonly property real gridW: root.columns * tileW + (root.columns - 1) * root.gap
       readonly property real gridH: root.rows * tileH + (root.rows - 1) * root.gap
-      readonly property real gridX: Math.round((width - gridW) / 2)
-      readonly property real gridY: Math.round((height - gridH) / 2 - statusH / 2)
+      readonly property real gridX: root.px((width - gridW) / 2)
+      readonly property real gridY: root.px((height - gridH) / 2 - statusH / 2)
 
       opacity: root.opened ? 1 : 0
       scale: root.opened ? 1 : 0.97
@@ -702,7 +712,7 @@ Item {
       Shape {
         id: dragOrigin
         readonly property real inset: lineWidth / 2
-        readonly property real lineWidth: Math.max(2, Style.normalBorderWidth * 2)
+        readonly property real lineWidth: root.thickLine
         visible: root.dragging && root.pressSlot > 0
         z: 4
         x: root.pressSlot > 0 ? root.tileX(root.pressSlot) : 0
@@ -823,7 +833,7 @@ Item {
           height: stage.tileH
           radius: root.radius
           color: "transparent"
-          border.width: strong ? Math.max(2, Style.normalBorderWidth * 2) : Style.normalBorderWidth
+          border.width: strong ? root.thickLine : root.thinLine
           border.color: strong ? root.accent : Commons.Color.menu.border
         }
       }
@@ -833,7 +843,8 @@ Item {
       // apart from the edge can't be mistaken for the current workspace's outline.
       Rectangle {
         readonly property int slot: !root.dragging && (root.keyed || root.pointSlot > 0) ? root.selectedSlot : -1
-        readonly property real offset: Math.max(3, Style.normalBorderWidth * 3)
+        // Ring width plus an even gap to the tile's edge.
+        readonly property real offset: root.thickLine + root.line(2)
         visible: slot > 0
         z: 4
         x: visible ? root.tileX(slot) - offset : 0
@@ -842,7 +853,7 @@ Item {
         height: stage.tileH + offset * 2
         radius: root.radius > 0 ? root.radius + offset : 0
         color: "transparent"
-        border.width: Math.max(2, Style.normalBorderWidth * 2)
+        border.width: root.thickLine
         border.color: root.foreground
       }
 
