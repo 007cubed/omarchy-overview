@@ -985,8 +985,12 @@ Item {
       readonly property int cellH: Math.round(cellW * hintPanel.height / Math.max(1, hintPanel.width))
       readonly property int gridW: root.columns * cellW + (root.columns - 1) * cellGap
       readonly property int gridH: root.rows * cellH + (root.rows - 1) * cellGap
-      readonly property int innerW: Math.max(gridW, hintLabel.implicitWidth, root.hintCarry ? hintCaption.implicitWidth : 0)
+      // A carry's caption never widens the card; its name is cut to fit instead.
+      readonly property int innerW: Math.max(gridW, hintLabel.implicitWidth)
       readonly property int captionH: root.hintCarry ? cellGap * 2 + hintCaption.implicitHeight : 0
+      // The plain switch card's height. A carry adds its caption below it, so the
+      // label and grid sit in the same place either way.
+      readonly property int plainH: borderTop + pad * 2 + borderBottom + hintLabel.implicitHeight + cellGap * 2 + gridH
 
       function cellX(slot) { return ((slot - 1) % root.columns) * (cellW + cellGap) }
       function cellY(slot) { return Math.floor((slot - 1) / root.columns) * (cellH + cellGap) }
@@ -1008,10 +1012,10 @@ Item {
       }
 
       width: borderLeft + pad * 2 + borderRight + innerW
-      height: borderTop + pad * 2 + borderBottom + hintLabel.implicitHeight + cellGap * 2 + gridH + captionH
+      height: plainH + captionH
       anchors.horizontalCenter: parent.horizontalCenter
-      anchors.bottom: parent.bottom
-      anchors.bottomMargin: Style.space(67)
+      // Pinned by the plain card's top, so a carry grows the card downwards.
+      y: parent.height - Style.space(67) - plainH
       color: Util.alpha(Commons.Color.background, 0.97)
       borderSpec: Border.surfaceSpec("popups", "border", Commons.Color.popups.border, Math.max(1, Style.space(2)))
       radius: Style.cornerRadius
@@ -1181,6 +1185,8 @@ Item {
         Text {
           textFormat: Text.PlainText
           text: root.hintApp
+          width: Math.min(implicitWidth, hintCard.innerW - Style.space(14) - hintCaption.spacing)
+          elide: Text.ElideRight
           color: Commons.Color.popups.text
           font.family: root.fontFamily
           font.pixelSize: Math.max(11, Style.font.bodySmall)
