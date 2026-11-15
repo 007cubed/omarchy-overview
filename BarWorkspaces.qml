@@ -212,17 +212,15 @@ BarWidget {
       width: wPx / root.dpr
       height: hPx / root.dpr
 
-      // Tiling, the default: a solid square in a quiet ink, the same family
-      // as the disc and triangle (Omarchy's square). 10 px, as a square looks
-      // bigger than a disc of the same size; the departures come in full colour.
+      // Tiling, the default: a solid 12 px square in a quiet 70 % ink, the same
+      // family and size as the disc and triangle (Omarchy's square), a little
+      // dimmer than the solid cells; the departures come in full colour.
       Rectangle {
         visible: root.activeMode === "dwindle"
-        x: 1 / root.dpr
-        y: 1 / root.dpr
-        width: 10 / root.dpr
-        height: 10 / root.dpr
+        width: 12 / root.dpr
+        height: 12 / root.dpr
         radius: 2 / root.dpr
-        color: Util.alpha(root.foreground, 0.55)
+        color: Util.alpha(root.foreground, 0.7)
       }
 
       LayoutShape {
