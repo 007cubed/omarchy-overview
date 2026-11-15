@@ -198,7 +198,8 @@ BarWidget {
     visible: root.activeId > 0
     bar: root.bar
     // Drawn, not a font glyph: the grid's own disc and triangle, and for tiling
-    // (unmarked in the grid) a small hollow square in the empty cells' ink, so
+    // (unmarked in the grid) a small hollow square at 75 % ink (3:1 in every
+    // stock theme, light ones too), so
     // the common case stays quiet. 10 screen pixels high, centred on the bar.
     hasVisualContent: true
     labelVisible: false
@@ -214,10 +215,10 @@ BarWidget {
       Rectangle {
         visible: root.activeMode === "dwindle"
         anchors.fill: parent
-        radius: 3 / root.dpr
+        radius: 2 / root.dpr
         color: "transparent"
         border.width: Math.max(1, Math.round(root.dpr)) / root.dpr
-        border.color: Util.alpha(root.foreground, 0.6)
+        border.color: Util.alpha(root.foreground, 0.75)
       }
 
       LayoutShape {
