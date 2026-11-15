@@ -206,7 +206,7 @@ BarWidget {
 
     Item {
       readonly property int hPx: 10
-      readonly property int wPx: root.activeMode === "floating" ? 15 : hPx
+      readonly property int wPx: root.activeMode === "floating" ? 12 : hPx
       x: Math.round((layoutButton.width * root.dpr - wPx) / 2) / root.dpr
       y: Math.round((layoutButton.height * root.dpr - hPx) / 2) / root.dpr
       width: wPx / root.dpr

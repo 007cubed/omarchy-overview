@@ -186,9 +186,9 @@ Item {
 
   // The layout shape beside a badge's number, the same shapes as the bar's and
   // the hint card's cells, sized to the numeral in whole screen pixels (at 1.6
-  // and a 24 px numeral: a disc 22 high, a triangle 31 x 26, about as heavy).
-  function badgeShapeW(mode) { return root.line(Style.font.display * (mode === "floating" ? 0.8 : 0.58)) }
-  function badgeShapeH(mode) { return root.line(Style.font.display * (mode === "floating" ? 0.68 : 0.58)) }
+  // and a 24 px numeral: a disc 22 high, a triangle 26 x 22, neither looking bigger).
+  function badgeShapeW(mode) { return root.line(Style.font.display * (mode === "floating" ? 0.67 : 0.58)) }
+  function badgeShapeH(mode) { return root.line(Style.font.display * 0.58) }
 
   function layoutName(mode) { return strings.t("layout." + mode) }
 
