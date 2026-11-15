@@ -140,12 +140,7 @@ BarWidget {
   LayoutModes { id: layouts }
   readonly property string activeMode: layouts.mode(root.activeId)
 
-  // Omarchy's glyphs for the layouts: a square tiles, a circle scrolls, a triangle floats.
-  function modeGlyph(mode) {
-    if (mode === "scrolling") return "󰝥"
-    if (mode === "floating") return "󰔶"
-    return "󱓻"
-  }
+  readonly property real dpr: root.monitor && root.monitor.scale > 0 ? root.monitor.scale : 1
 
   // The bar's colour without its alpha: what a cut-out mark is drawn in (on a
   // translucent bar it comes out a little darker than the bar around it).
@@ -177,7 +172,11 @@ BarWidget {
   ShellIpc {
     target: "omarchy.workspaces"
 
-    function refresh(): void { root.broadcast("refresh") }
+    function refresh(): void {
+      root.broadcast("refresh")
+      // The overview's own copy (its hint card and badges) hears it from here.
+      if (root.bar) root.bar.run("omarchy-shell -q shell call guykawaii.overview refreshLayouts ''")
+    }
   }
 
   readonly property real trailingGap: Style.spaceReal(1.5)
@@ -198,9 +197,36 @@ BarWidget {
     anchors.verticalCenter: parent.verticalCenter
     visible: root.activeId > 0
     bar: root.bar
-    text: root.modeGlyph(root.activeMode)
-    foreground: layouts.color(root.activeMode, root.foreground, root.barSurface)
-    tooltipText: strings.t("layout.tip").arg(strings.t("layout." + root.activeMode)).arg(strings.t("layout." + root.nextMode(root.activeMode)))
+    // Drawn, not a font glyph: the grid's own disc and triangle, and for tiling
+    // (unmarked in the grid) a small hollow square in the empty cells' ink, so
+    // the common case stays quiet. 10 screen pixels high, centred on the bar.
+    hasVisualContent: true
+    labelVisible: false
+
+    Item {
+      readonly property int hPx: 10
+      readonly property int wPx: root.activeMode === "floating" ? 15 : hPx
+      x: Math.round((layoutButton.width * root.dpr - wPx) / 2) / root.dpr
+      y: Math.round((layoutButton.height * root.dpr - hPx) / 2) / root.dpr
+      width: wPx / root.dpr
+      height: hPx / root.dpr
+
+      Rectangle {
+        visible: root.activeMode === "dwindle"
+        anchors.fill: parent
+        radius: 3 / root.dpr
+        color: "transparent"
+        border.width: Math.max(1, Math.round(root.dpr)) / root.dpr
+        border.color: Util.alpha(root.foreground, 0.6)
+      }
+
+      LayoutShape {
+        anchors.fill: parent
+        mode: root.activeMode
+        ink: layouts.color(root.activeMode, root.foreground, root.barSurface)
+      }
+    }
+    tooltipText: strings.t(root.activeMode === "dwindle" ? "layout.tipTiling" : "layout.tip").arg(strings.t("layout." + root.activeMode)).arg(strings.t("layout." + root.nextMode(root.activeMode)))
     horizontalMargin: 6
     verticalPadding: 6
     fixedWidth: Style.space(20)

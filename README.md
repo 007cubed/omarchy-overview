@@ -25,7 +25,7 @@ a bar widget in the same shape, and an optional set of touchpad gestures built a
 - **Shift + 1–0** moves the window under the pointer (or the selected slot's focused window) to
   that slot and stays in the overview. It goes by the key's place on the number row, so it works
   on any keyboard layout
-- The line under the grid names what is under the pointer ("Go to 7", "firefox — title"), and
+- The line under the grid names what is under the pointer ("Go to 7", "Go to 4 · Scrolling", "firefox — title"), and
   lists the controls when nothing is
 - **Pointer:** opening puts the pointer on the current workspace's tile. Closing without going
   anywhere puts it back where it was; going somewhere leaves it on the window that got focus (or
@@ -82,12 +82,12 @@ everything under it in all 23 stock themes; other theme colours fall below that 
 
 The plugin is also a bar widget that shows the ten slots as the same 5×2 grid, 1–5 over 6–10,
 so a row change reads as a move up or down. After the slots it shows the shown workspace's layout
-the way `omarchy.workspaces` does (a square tiles, a circle scrolls, a triangle floats); click it
+as a drawn shape (a faint hollow square tiles, a disc scrolls, a triangle floats); click it
 to cycle, as Super + L. Every slot shows its workspace's layout the same way, in the bar's cells,
 the switch hint's cells and the overview's number badges: a disc for scrolling (the theme's green)
 and a triangle for floating (its magenta), cut out of a cell that has windows. Tiling, the usual
 case, has no mark. The shapes carry the meaning; a theme whose green or magenta is grey, faint, or
-too like its accent, its red or each other shows them in the plain text colour instead. Put it in place of `omarchy.workspaces` in
+too like its accent, its red or each other shows them in the plain text colour instead. Put it in place of `omarchy.workspaces` (not beside it: it takes over that widget's refresh call) in
 `~/.config/omarchy/shell.json`:
 
 ```json

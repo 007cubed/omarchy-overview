@@ -4,6 +4,7 @@
   "drag.swap": "Swap %1 ↔ %2",
   "switch.go": "%1 → %2",
   "status.go": "Go to %1",
+  "status.goLayout": "Go to %1 · %2",
   "status.window": "%1 — %2",
   "status.handle": "Drag %1 to swap the whole workspace · click to go",
   "level.tiled": "Tiled",
@@ -13,5 +14,6 @@
   "layout.dwindle": "Tiling",
   "layout.scrolling": "Scrolling",
   "layout.floating": "Floating",
-  "layout.tip": "%1 · click for %2"
+  "layout.tip": "%1 · click for %2",
+  "layout.tipTiling": "%1, unmarked in the grid · click for %2"
 }

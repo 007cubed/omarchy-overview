@@ -19,7 +19,7 @@ import qs.Ui
 // A drag lands on the tile nearest the dragged copy (accent ring and wash); what
 // was lifted dims; the line under the grid says what the drop will do. Esc, or a
 // drop on its own tile, cancels.
-// A scrolling or floating workspace shows Omarchy's glyph for it in its badge.
+// A scrolling or floating workspace shows its layout's shape in its badge.
 //   1-9, 0              go to that slot;  Esc closes
 //   arrows / hjkl       move the selection (it starts on the current slot and
 //                       follows the pointer);  Enter goes there
@@ -142,6 +142,10 @@ Item {
       root.shell.hide((root.manifest && root.manifest.id) || "guykawaii.overview")
   }
 
+  // The bar passes on Omarchy's layout refresh (Super + L, a new default), so
+  // the hint card's marks are current without a read on every switch.
+  function refreshLayouts(arg) { layouts.reload() }
+
   function toggle() {
     if (root.opened) root.dismiss()
     else root.open("{}")
@@ -173,18 +177,20 @@ Item {
   }
 
   // Every workspace's layout: tiles mark scrolling and floating ones in their
-  // badge, the hint card in its cells. Read again when either shows.
+  // badge, the hint card in its cells. Read again when the overview opens, when
+  // the bar relays a layout change (refreshLayouts) and on a config reload.
   LayoutModes { id: layouts }
 
-  // Omarchy's own glyphs for the layouts; tiling has none here (it is never marked).
   // The hint card's colour without its alpha, for cut-out marks and contrast.
   readonly property color popupSurface: Qt.rgba(Commons.Color.popups.background.r, Commons.Color.popups.background.g, Commons.Color.popups.background.b, 1)
 
-  function layoutGlyph(mode) {
-    if (mode === "scrolling") return "󰝥"
-    if (mode === "floating") return "󰔶"
-    return ""
-  }
+  // The layout shape beside a badge's number, the same shapes as the bar's and
+  // the hint card's cells, sized to the numeral in whole screen pixels (at 1.6
+  // and a 24 px numeral: a disc 18 high, a triangle 25 x 21, about as heavy).
+  function badgeShapeW(mode) { return root.line(Style.font.display * (mode === "floating" ? 0.65 : 0.47)) }
+  function badgeShapeH(mode) { return root.line(Style.font.display * (mode === "floating" ? 0.55 : 0.47)) }
+
+  function layoutName(mode) { return strings.t("layout." + mode) }
 
   function activeSlot() {
     var ws = root.monitor ? root.monitor.activeWorkspace : null
@@ -466,7 +472,11 @@ Item {
     }
     if (root.pointBadge && !root.keyed) return strings.t("status.handle").arg(root.pointSlot % 10)
     var slot = root.keyed ? root.selectedSlot : root.pointSlot
-    return slot > 0 ? strings.t("status.go").arg(slot % 10) : strings.t("hint")
+    if (slot < 1) return strings.t("hint")
+    // A scrolling or floating workspace says so ("Go to 4 · Scrolling").
+    var mode = layouts.mode(root.workspaceId(slot))
+    return mode === "dwindle" ? strings.t("status.go").arg(slot % 10)
+      : strings.t("status.goLayout").arg(slot % 10).arg(root.layoutName(mode))
   }
 
   function endPress(p) {
@@ -780,7 +790,6 @@ Item {
           x: root.tileX(slot)
           y: root.tileY(slot) + stage.tileH - height
           readonly property string mode: layouts.mode(root.workspaceId(badge.slot))
-          readonly property string glyph: root.layoutGlyph(mode)
           readonly property color ink: badge.active ? root.background : root.foreground
           width: root.px(Math.max(height, label.implicitWidth + Style.spacing.md * 2))
           height: number.implicitHeight + Style.spacing.sm * 2
@@ -789,7 +798,7 @@ Item {
           border.width: lit ? root.thickLine : 0
           border.color: root.foreground
 
-          // The number, then the layout's glyph for a scrolling or floating
+          // The number, then the layout's shape for a scrolling or floating
           // workspace; a tiling one's badge is the number alone.
           Row {
             id: label
@@ -805,14 +814,12 @@ Item {
               font.pixelSize: Style.font.display
               font.bold: true
             }
-            Text {
-              visible: badge.glyph !== ""
+            LayoutShape {
               anchors.verticalCenter: parent.verticalCenter
-              textFormat: Text.PlainText
-              text: badge.glyph
-              color: badge.active ? badge.ink : layouts.color(badge.mode, badge.ink, root.background)
-              font.family: root.fontFamily
-              font.pixelSize: Style.font.heading
+              mode: badge.mode
+              ink: badge.active ? badge.ink : layouts.color(badge.mode, badge.ink, root.background)
+              width: root.badgeShapeW(badge.mode)
+              height: root.badgeShapeH(badge.mode)
             }
           }
         }
@@ -940,7 +947,6 @@ Item {
           anchors.centerIn: parent
           spacing: Style.spacing.sm
           readonly property string mode: root.pressSlot > 0 ? layouts.mode(root.workspaceId(root.pressSlot)) : "dwindle"
-          readonly property string glyph: root.layoutGlyph(mode)
 
           Text {
             textFormat: Text.PlainText
@@ -950,14 +956,12 @@ Item {
             font.pixelSize: Style.font.display
             font.bold: true
           }
-          Text {
-            visible: parent.glyph !== ""
+          LayoutShape {
             anchors.verticalCenter: parent.verticalCenter
-            textFormat: Text.PlainText
-            text: parent.glyph
-            color: layouts.color(parent.mode, root.foreground, root.background)
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.heading
+            mode: parent.mode
+            ink: layouts.color(parent.mode, root.foreground, root.background)
+            width: root.badgeShapeW(parent.mode)
+            height: root.badgeShapeH(parent.mode)
           }
         }
       }
@@ -1120,7 +1124,6 @@ Item {
     if (ws && ws.hasFullscreen) return
 
     var block = Math.floor((id - 1) / root.slots)
-    layouts.reload()
     var to = (id - 1) % root.slots + 1
     // From another block (another monitor's) there is nothing to slide from.
     var from = previous > 0 && Math.floor((previous - 1) / root.slots) === block

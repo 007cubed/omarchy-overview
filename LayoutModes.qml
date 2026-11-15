@@ -7,7 +7,8 @@ import qs.Commons
 // (tiling), "scrolling" or "floating". Read from the files Omarchy's layout
 // commands write, one per workspace with a layout of its own, plus the default
 // for the rest; one short script reads them all at once. Read again on
-// reload() (the layout commands ask for it, the overview when it opens) and
+// reload() (the layout commands ask the bar, which passes it on to the
+// overview; the overview also reads when it opens) and
 // on a config reload. Also the theme's palette and each layout's colour.
 Item {
   id: modes

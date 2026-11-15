@@ -4,6 +4,7 @@
   "drag.swap": "Byt %1 ↔ %2",
   "switch.go": "%1 → %2",
   "status.go": "Gå til %1",
+  "status.goLayout": "Gå til %1 · %2",
   "status.window": "%1 — %2",
   "status.handle": "Træk %1 for at bytte hele arbejdsområdet · klik for at gå",
   "level.tiled": "Fliselagt",
@@ -13,5 +14,6 @@
   "layout.dwindle": "Fliselagt",
   "layout.scrolling": "Rullende",
   "layout.floating": "Svævende",
-  "layout.tip": "%1 · klik for %2"
+  "layout.tip": "%1 · klik for %2",
+  "layout.tipTiling": "%1, umarkeret i gitteret · klik for %2"
 }
