@@ -198,15 +198,16 @@ BarWidget {
     visible: root.activeId > 0
     bar: root.bar
     // Drawn, not a font glyph: the grid's own disc and triangle, and for tiling
-    // (unmarked in the grid) a small hollow square at 75 % ink (3:1 in every
-    // stock theme, light ones too), so
-    // the common case stays quiet. 10 screen pixels high, centred on the bar.
+    // (unmarked in the grid) a hollow square at 85 % ink, like the solid cells.
+    // 12 screen pixels high (Omarchy's bar icon size, a cell's height), centred
+    // on the bar, 14 px right of the grid: close enough to belong to it, too
+    // far and too square to pass for an eleventh cell.
     hasVisualContent: true
     labelVisible: false
 
     Item {
-      readonly property int hPx: 10
-      readonly property int wPx: root.activeMode === "floating" ? 12 : hPx
+      readonly property int hPx: 12
+      readonly property int wPx: root.activeMode === "floating" ? 14 : hPx
       x: Math.round((layoutButton.width * root.dpr - wPx) / 2) / root.dpr
       y: Math.round((layoutButton.height * root.dpr - hPx) / 2) / root.dpr
       width: wPx / root.dpr
@@ -215,10 +216,10 @@ BarWidget {
       Rectangle {
         visible: root.activeMode === "dwindle"
         anchors.fill: parent
-        radius: 2 / root.dpr
+        radius: 3 / root.dpr
         color: "transparent"
         border.width: Math.max(1, Math.round(root.dpr)) / root.dpr
-        border.color: Util.alpha(root.foreground, 0.75)
+        border.color: Util.alpha(root.foreground, 0.85)
       }
 
       LayoutShape {
@@ -230,7 +231,7 @@ BarWidget {
     tooltipText: strings.t(root.activeMode === "dwindle" ? "layout.tipTiling" : "layout.tip").arg(strings.t("layout." + root.activeMode)).arg(strings.t("layout." + root.nextMode(root.activeMode)))
     horizontalMargin: 6
     verticalPadding: 6
-    fixedWidth: Style.space(20)
+    fixedWidth: Style.space(18)
     fixedHeight: root.barSize
     onPressed: root.cycleLayout()
     onWheelMoved: function(delta) { root.scrollSlots(delta) }
