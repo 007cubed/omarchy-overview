@@ -14,5 +14,6 @@
   "layout.dwindle": "Tiling",
   "layout.scrolling": "Scrolling",
   "layout.floating": "Floating",
-  "layout.tip": "%1 · click for %2"
+  "layout.tip": "%1 · click for %2",
+  "layout.tipTiling": "%1, unmarked in the grid · click for %2"
 }
