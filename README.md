@@ -146,9 +146,8 @@ copy the lines you want instead of loading the file.
   previous one, and the row loops: 5 → 1, 1 → 5, 10 → 6, 6 → 10, never across rows. These are
   plain one-shot gestures, not Hyprland's tracked workspace swipe (which can't loop), so the move
   fires as soon as the swipe is recognised and doesn't follow the fingers.
-- **Wraps.** Hyprland picks the slide's direction by workspace number and has no way to turn it
-  round, so a wrap such as 5 → 1 would slide backwards against the swipe. A wrap fades instead,
-  and the switch hint draws a carried wrap like any other carry: one arrow back across the row.
+- **Wraps.** A wrap such as 5 → 1 slides on in the swipe's direction, as if the row were a
+  loop (Hyprland would go by workspace number; the slide's style names the side). The switch hint draws a carried wrap like any other carry: one arrow back across the row.
 - **Scratchpad.** 4 fingers down closes the overview when its layer is open, and otherwise pulls
   the scratchpad down like a drop-down terminal. For 0.3 s after the overview closes it is ignored,
   so a double swipe doesn't open the scratchpad by accident.

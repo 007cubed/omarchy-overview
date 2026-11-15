@@ -69,15 +69,12 @@ local function row_slot(step)
   return target
 end
 
--- Hyprland picks a workspace slide's direction by number and can't be told
--- otherwise, so a wrap (5 -> 1) would slide in number order, backwards against the
--- swipe. A wrap fades instead: no direction rather than the wrong one.
-local function slide_for(step, slot)
-  local from = active_slot()
-  if from and ((step > 0 and slot < from) or (step < 0 and slot > from)) then
-    return "fade"
-  end
-  return "slide"
+-- Hyprland picks a workspace slide's direction by number, so a wrap (5 -> 1) would
+-- slide backwards against the swipe. A direction in the style overrides that:
+-- "slide right" brings the new workspace in from the right (the way up the row),
+-- "slide left" from the left, so every step, wraps too, follows the fingers.
+local function slide_for(step)
+  return step > 0 and "slide right" or "slide left"
 end
 
 -- Switch: go to the next/previous slot in the row. The built-in workspace swipe
@@ -110,7 +107,7 @@ local function focus_by(step)
     if strip_step(step) then return end
     local slot = row_slot(step)
     if slot then
-      with_slide(slide_for(step, slot), o.workspaces.focus(slot))
+      with_slide(slide_for(step), o.workspaces.focus(slot))
     end
   end
 end
@@ -120,7 +117,7 @@ local function move_window_by(step)
   return function()
     local slot = row_slot(step)
     if slot then
-      with_slide(slide_for(step, slot), o.workspaces.move_window(slot))
+      with_slide(slide_for(step), o.workspaces.move_window(slot))
     end
   end
 end
