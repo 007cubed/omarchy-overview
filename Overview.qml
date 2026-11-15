@@ -472,11 +472,22 @@ Item {
     }
     if (root.pointBadge && !root.keyed) return strings.t("status.handle").arg(root.pointSlot % 10)
     var slot = root.keyed ? root.selectedSlot : root.pointSlot
-    if (slot < 1) return strings.t("hint")
+    if (slot < 1) return root.idleText()
     // A scrolling or floating workspace says so ("Go to 4 · Scrolling").
     var mode = layouts.mode(root.workspaceId(slot))
     return mode === "dwindle" ? strings.t("status.go").arg(slot % 10)
       : strings.t("status.goLayout").arg(slot % 10).arg(root.layoutName(mode))
+  }
+
+  // The controls, and a key to the badge marks when any slot shows one
+  // ("● Scrolling · ▲ Floating"), so the shapes explain themselves.
+  function idleText() {
+    var has = {}
+    for (var s = 1; s <= root.slots; s++) has[layouts.mode(root.workspaceId(s))] = true
+    var keys = []
+    if (has.scrolling) keys.push("● " + root.layoutName("scrolling"))
+    if (has.floating) keys.push("▲ " + root.layoutName("floating"))
+    return keys.length ? keys.join(" · ") + "   " + strings.t("hint") : strings.t("hint")
   }
 
   function endPress(p) {
@@ -800,7 +811,7 @@ Item {
           width: marked ? root.px(shape.x + shape.width + numberX) : plainW
           height: number.implicitHeight + Style.spacing.sm * 2
           radius: root.radius
-          color: active ? root.accent : Util.alpha(root.background, lit ? 0.95 : 0.75)
+          color: active ? root.accent : Util.alpha(root.background, lit ? 0.95 : 0.9)
           border.width: lit ? root.thickLine : 0
           border.color: root.foreground
 
@@ -818,7 +829,10 @@ Item {
           LayoutShape {
             id: shape
             x: root.px(number.x + number.implicitWidth + Style.spacing.sm)
+            // A triangle's weight sits low (its centroid a sixth below the box's
+            // middle), so it rises by half that to look level with the disc.
             anchors.verticalCenter: parent.verticalCenter
+            anchors.verticalCenterOffset: badge.mode === "floating" ? -root.px(height / 12) : 0
             mode: badge.mode
             ink: badge.active ? badge.ink : layouts.color(badge.mode, badge.ink, root.background)
             width: root.badgeShapeW(badge.mode)
@@ -890,7 +904,7 @@ Item {
         elide: Text.ElideRight
         text: root.statusText()
         color: root.foreground
-        opacity: text === strings.t("hint") ? 0.7 : 1
+        opacity: text === root.idleText() ? 0.7 : 1
         font.family: root.fontFamily
         font.pixelSize: Style.font.body
       }
