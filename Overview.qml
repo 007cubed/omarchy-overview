@@ -791,36 +791,38 @@ Item {
           y: root.tileY(slot) + stage.tileH - height
           readonly property string mode: layouts.mode(root.workspaceId(badge.slot))
           readonly property color ink: badge.active ? root.background : root.foreground
-          width: root.px(Math.max(height, label.implicitWidth + Style.spacing.md * 2))
+          // The number sits where it would in a plain badge, whatever follows
+          // it: a scrolling or floating workspace's shape only extends the
+          // badge to the right, so no number moves.
+          readonly property real plainW: root.px(Math.max(height, number.implicitWidth + Style.spacing.md * 2))
+          readonly property real numberX: root.px((plainW - number.implicitWidth) / 2)
+          readonly property bool marked: badge.mode === "scrolling" || badge.mode === "floating"
+          width: marked ? root.px(shape.x + shape.width + numberX) : plainW
           height: number.implicitHeight + Style.spacing.sm * 2
           radius: root.radius
           color: active ? root.accent : Util.alpha(root.background, lit ? 0.95 : 0.75)
           border.width: lit ? root.thickLine : 0
           border.color: root.foreground
 
-          // The number, then the layout's shape for a scrolling or floating
-          // workspace; a tiling one's badge is the number alone.
-          Row {
-            id: label
-            anchors.centerIn: parent
-            spacing: Style.spacing.sm
-
-            Text {
-              id: number
-              textFormat: Text.PlainText
-              text: String(badge.slot % 10)
-              color: badge.ink
-              font.family: root.fontFamily
-              font.pixelSize: Style.font.display
-              font.bold: true
-            }
-            LayoutShape {
-              anchors.verticalCenter: parent.verticalCenter
-              mode: badge.mode
-              ink: badge.active ? badge.ink : layouts.color(badge.mode, badge.ink, root.background)
-              width: root.badgeShapeW(badge.mode)
-              height: root.badgeShapeH(badge.mode)
-            }
+          Text {
+            id: number
+            x: badge.numberX
+            anchors.verticalCenter: parent.verticalCenter
+            textFormat: Text.PlainText
+            text: String(badge.slot % 10)
+            color: badge.ink
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.display
+            font.bold: true
+          }
+          LayoutShape {
+            id: shape
+            x: root.px(number.x + number.implicitWidth + Style.spacing.sm)
+            anchors.verticalCenter: parent.verticalCenter
+            mode: badge.mode
+            ink: badge.active ? badge.ink : layouts.color(badge.mode, badge.ink, root.background)
+            width: root.badgeShapeW(badge.mode)
+            height: root.badgeShapeH(badge.mode)
           }
         }
       }
