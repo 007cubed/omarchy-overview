@@ -15,5 +15,5 @@
   "layout.scrolling": "Rullende",
   "layout.floating": "Svævende",
   "layout.tip": "%1 · klik for %2",
-  "layout.tipTiling": "%1, umarkeret i gitteret · klik for %2"
+  "layout.tipTiling": "%1 (standard) · klik for %2"
 }
