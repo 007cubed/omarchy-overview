@@ -198,8 +198,8 @@ BarWidget {
     visible: root.activeId > 0
     bar: root.bar
     // Drawn, not a font glyph: the grid's own disc and triangle in full colour
-    // for the two departures, and for tiling, the default, four small quiet
-    // tiles. 12 screen pixels high (Omarchy's bar icon size, a cell's height),
+    // for the two departures, and for tiling, the default, a quiet solid
+    // square. 12 screen pixels high (Omarchy's bar icon size, a cell's height),
     // centred on the bar, 14 px right of the grid.
     hasVisualContent: true
     labelVisible: false
@@ -212,20 +212,17 @@ BarWidget {
       width: wPx / root.dpr
       height: hPx / root.dpr
 
-      // Tiling: four small solid tiles, 10 px across, in a quiet ink. Solid
-      // and muted reads as the normal state (an outline read as empty or off);
-      // the departures come in full colour.
-      Repeater {
-        model: root.activeMode === "dwindle" ? 4 : 0
-        Rectangle {
-          required property int index
-          x: (1 + (index % 2) * 6) / root.dpr
-          y: (1 + Math.floor(index / 2) * 6) / root.dpr
-          width: 4 / root.dpr
-          height: 4 / root.dpr
-          radius: 1 / root.dpr
-          color: Util.alpha(root.foreground, 0.55)
-        }
+      // Tiling, the default: a solid square in a quiet ink, the same family
+      // as the disc and triangle (Omarchy's square). 10 px, as a square looks
+      // bigger than a disc of the same size; the departures come in full colour.
+      Rectangle {
+        visible: root.activeMode === "dwindle"
+        x: 1 / root.dpr
+        y: 1 / root.dpr
+        width: 10 / root.dpr
+        height: 10 / root.dpr
+        radius: 2 / root.dpr
+        color: Util.alpha(root.foreground, 0.55)
       }
 
       LayoutShape {

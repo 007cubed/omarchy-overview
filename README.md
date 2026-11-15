@@ -82,7 +82,7 @@ everything under it in all 23 stock themes; other theme colours fall below that 
 
 The plugin is also a bar widget that shows the ten slots as the same 5×2 grid, 1–5 over 6–10,
 so a row change reads as a move up or down. After the slots it shows the shown workspace's layout
-as a drawn shape (four quiet tiles for tiling, the default; a disc scrolls, a triangle floats); click it
+as a drawn shape (a quiet solid square for tiling, the default; a disc scrolls, a triangle floats); click it
 to cycle, as Super + L. Every slot shows its workspace's layout the same way, in the bar's cells,
 the switch hint's cells and the overview's number badges: a disc for scrolling (the theme's green)
 and a triangle for floating (its magenta), cut out of a cell that has windows. Tiling, the usual
