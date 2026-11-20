@@ -22,9 +22,8 @@ case $1 in
     key "Shift + 8" -M shift -k 8 -m shift
     key "↓" -k Down
     key "Enter" -k Return
-    sleep 0.6
-    overview; sleep 1
-    key "4" -k 4
+    overview; sleep 0.9
+    key "2" -k 2
     sleep 0.6
     ;;
   bar)

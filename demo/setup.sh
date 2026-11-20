@@ -14,20 +14,22 @@ clean() {
   while read -r pid; do kill "$pid" 2>/dev/null || true; done <"$PIDS"
   rm -f "$PIDS"
   sleep 1
+  rm -rf "$STATE/chromium"   # a killed profile asks to restore pages
 }
 
-count() { hyprctl clients -j | jq length; }
+addresses() { hyprctl clients -j | jq -r '.[].address' | sort; }
 
-# Launch on the focused slot and wait until its window is mapped.
+# Launch on the focused slot, wait until its window is mapped, keep its pid.
 open() {
-  local before
-  before=$(count)
+  local before new
+  before=$(addresses)
   setsid -f "$@" >/dev/null 2>&1
   for _ in $(seq 60); do
-    (( $(count) > before )) && break
+    new=$(comm -13 <(echo "$before") <(addresses) | head -1)
+    [[ -n $new ]] && break
     sleep 0.25
   done
-  hyprctl clients -j | jq -r 'min_by(.focusHistoryID) | .pid' >>"$PIDS"
+  hyprctl clients -j | jq -r --arg a "$new" '.[] | select(.address == $a) | .pid' >>"$PIDS"
   sleep 0.3
 }
 
@@ -44,9 +46,15 @@ layout() {
 clean
 [[ ${1:-} == clean ]] && exit 0
 
+# The page sits under /tmp so the address bar shows no home path. Chromium runs
+# without extensions: system-wide ones open their own sign-in windows on a new
+# profile, and the wrapper's flags load more.
+page=/tmp/workspace-overview/index.html
+mkdir -p "$(dirname "$page")" && cp "$DEMO_DIR/page.html" "$page"
 focus 1; term nvim nvim "$REPO_DIR/Overview.qml"
 focus 2
-open chromium --user-data-dir="$STATE/chromium" --no-first-run --no-default-browser-check https://omarchy.org
+open /usr/lib/chromium/chromium --ozone-platform=wayland --user-data-dir="$STATE/chromium" \
+  --no-first-run --no-default-browser-check --disable-extensions "file://$page"
 term notes
 focus 3; term one; term two; term three
 focus 4; term btop btop

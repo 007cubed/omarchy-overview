@@ -2,7 +2,8 @@
 # Turn a recording into a README GIF: trim, crop, scale, burn in chips, palette.
 # Usage: demo/render.sh NAME START DURATION CROP WIDTH [FPS]
 #   CROP is w:h:x:y in physical pixels, "full" for the whole screen.
-#   Chips come from NAME.cues (written by takes.sh), shown for 1 s each.
+#   Chips come from NAME.cues (written by takes.sh), shown for 0.8 s each,
+#   at the bottom, or at CHIP_Y (an ffmpeg expression, e.g. CHIP_Y=24 for the top).
 # Example: demo/render.sh switch-hint 1.0 5.0 640:400:960:1180 640 25
 set -euo pipefail
 source "$(dirname "$0")/env.sh"
@@ -23,8 +24,8 @@ if [[ -f $OUT_DIR/$name.cues ]]; then
     printf '%s' "$text" >"$STATE/chip$i.txt"
     from=$(awk -v a="$t" -v b="$start" 'BEGIN { printf "%.2f", a - b }')
     filters+=",drawtext=fontfile=$font:textfile=$STATE/chip$i.txt:fontsize=$((width / 30)):fontcolor=white"
-    filters+=":box=1:boxcolor=0x1a1b26@0.9:boxborderw=12:x=(w-text_w)/2:y=h-text_h-24"
-    filters+=":enable='between(t,$from,$from+1)'"
+    filters+=":box=1:boxcolor=0x1a1b26@0.9:boxborderw=12:x=(w-text_w)/2:y=${CHIP_Y:-h-text_h-24}"
+    filters+=":enable='between(t,$from,$from+0.8)'"
   done <"$OUT_DIR/$name.cues"
 fi
 

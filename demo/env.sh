@@ -1,7 +1,15 @@
-# Sourced by the demo scripts: reach the logged-in Hyprland session even over ssh.
+# Sourced by the demo scripts: reach the logged-in Hyprland session even over ssh,
+# with the session's own environment (OMARCHY_PATH, PATH, the Hyprland instance).
 export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
-export WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-wayland-1}
-export HYPRLAND_INSTANCE_SIGNATURE=${HYPRLAND_INSTANCE_SIGNATURE:-$(ls -t "$XDG_RUNTIME_DIR/hypr" | head -1)}
+if [[ -z ${OMARCHY_PATH:-} ]]; then
+  while IFS= read -r line; do
+    case ${line%%=*} in
+      OMARCHY_PATH | PATH | LANG | LC_* | WAYLAND_DISPLAY | HYPRLAND_INSTANCE_SIGNATURE | DBUS_SESSION_BUS_ADDRESS | XDG_CURRENT_DESKTOP)
+        export "$line" ;;
+    esac
+  done < <(systemctl --user show-environment)
+fi
+export LANG=${LANG:-C.UTF-8}
 
 DEMO_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 REPO_DIR=$(dirname "$DEMO_DIR")

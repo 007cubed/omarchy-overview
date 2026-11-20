@@ -24,5 +24,14 @@ else
   read -rp "Recording $name; press Enter to stop. "
 fi
 
+stop=$(date +%s.%N)
 kill -INT "$rec"; wait "$rec" || true
+
+# The recording starts before START; shift the chips to video time:
+# the video's first frame is the stop time minus its duration.
+if [[ -f $CUES ]]; then
+  duration=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$OUT_DIR/$name.mp4")
+  shift=$(awk -v s="$START" -v e="$stop" -v d="$duration" 'BEGIN { printf "%.2f", s - (e - d) }')
+  awk -F'\t' -v k="$shift" -v OFS='\t' '{ $1 = sprintf("%.2f", $1 + k); print }' "$CUES" >"$CUES.tmp" && mv "$CUES.tmp" "$CUES"
+fi
 echo "$OUT_DIR/$name.mp4"
