@@ -8,6 +8,10 @@ set -euo pipefail
 source "$(dirname "$0")/env.sh"
 
 name=$1; shift
+# One recording at a time: another project may be filming this screen.
+if pgrep -x gpu-screen-reco >/dev/null || pgrep -x wf-recorder >/dev/null; then
+  echo "another screen recording is running; wait for it to finish" >&2; exit 1
+fi
 monitor=$(hyprctl monitors -j | jq -r '.[] | select(.focused) | .name')
 rm -f "$OUT_DIR/$name.cues"
 
