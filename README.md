@@ -45,7 +45,7 @@ a bar widget in the same shape, and an optional set of touchpad gestures built a
 ## Install
 
 ```bash
-omarchy plugin add https://github.com/GuyKawaii/omarchy-overview.git --enable --yes
+omarchy plugin add https://github.com/007cubed/omarchy-overview.git --enable --yes
 ```
 
 Open it from a keybinding, a gesture or a terminal:

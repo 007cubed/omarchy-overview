@@ -3,7 +3,7 @@
   "id": "guykawaii.overview",
   "name": "Workspace Overview",
   "version": "1.0.0",
-  "author": "GuyKawaii",
+  "author": "007cubed",
   "description": "Live overview of every workspace on the focused monitor, and bar workspaces in the same 5x2 shape. Drag windows between workspaces and drag workspaces to swap them.",
   "kinds": [
     "overlay",
